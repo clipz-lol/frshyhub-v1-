@@ -6,7 +6,7 @@
     - Show/Hide GUI (Right Shift) - FIXED
     - Editable Keybinds for all features (Default: None)
     - FOV Circle with customization
-    - Smoothing adjustment
+    - Smoothing adjustment (0 = rage, 100 = max legit)
     - Team Check
     - Wall Check
     - Persistent Settings (saves between sessions)
@@ -90,7 +90,7 @@ local Settings = {
     TeamCheck = true,
     WallCheck = true,
     AimFOV = 100,
-    Smoothness = 0.01,
+    Smoothness = 100,  -- 0 = rage (instant), 100 = max legit (slow smooth)
     ShowFOV = true,
     FlyEnabled = false,
     NoclipEnabled = false,
@@ -331,7 +331,7 @@ local function GetSlotInfo(slotNumber)
         if decoded then
             local name = GetSlotName(slotNumber)
             return name .. " | FOV:" .. (decoded.AimFOV or "?") .. 
-                   " | Sm:" .. tostring((decoded.Smoothness or 0) * 100) ..
+                   " | Sm:" .. tostring(decoded.Smoothness or 0) ..
                    " | Pred:" .. tostring((decoded.Prediction or 0) * 100) ..
                    " | Lock:" .. tostring((decoded.AimLockStrength or 0) * 100) .. "%" ..
                    " | RF:" .. (decoded.RapidFireEnabled and "ON" or "OFF")
@@ -481,7 +481,6 @@ local RapidFireConnection = nil
 local RapidFireLastFireTime = 0
 
 local function FireGun()
-    -- Simple mouse click simulation
     pcall(function()
         VirtualInputManager:SendMouseButtonEvent(Vector2.new(0, 0), 0, true, Enum.UserInputType.MouseButton1, 0)
         VirtualInputManager:SendMouseButtonEvent(Vector2.new(0, 0), 0, false, Enum.UserInputType.MouseButton1, 0)
@@ -1430,7 +1429,7 @@ local function CreateGUI()
         getgenv().AimFOV = v
         UpdateFOVCircle()
     end)
-    CreateAimbotSlider("Smoothness", 155, 1, 40, function() return getgenv().Smoothness * 100 end, function(v) getgenv().Smoothness = v / 100 end)
+    CreateAimbotSlider("Smoothness", 155, 0, 100, function() return getgenv().Smoothness end, function(v) getgenv().Smoothness = v end)
     CreateAimbotSlider("Prediction", 200, 0, 50, function() return getgenv().Prediction * 100 end, function(v) getgenv().Prediction = v / 100 end)
     CreateAimbotSlider("Lock Strength", 245, 1, 100, function() return getgenv().AimLockStrength * 100 end, function(v) getgenv().AimLockStrength = v / 100 end)
 
@@ -2595,10 +2594,18 @@ RunService.RenderStepped:Connect(function()
             local deltaY = target.ScreenY - mousePos.Y
             
             local lockStrength = getgenv().AimLockStrength or 1.0
-            local smoothness = getgenv().Smoothness or 0.01
-            local smoothFactor = 1 - math.min(smoothness, 0.9)
-            local effectiveFactor = smoothFactor * (1 - (lockStrength * 0.6))
-            effectiveFactor = math.max(effectiveFactor, 0.02)
+            local smoothness = getgenv().Smoothness or 100  -- 0 = rage (instant), 100 = max legit
+            
+            -- Higher smoothness = more legit (slower/smoother aim)
+            -- 0   -> instant snap (rage)
+            -- 100 -> very gradual, legit-looking tracking (still locks)
+            local smoothFactor = smoothness / 100  -- 0 to 1
+            -- At 0: factor = 1 (instant). At 100: factor = 0.05 (slow smooth)
+            local baseFactor = 1 - (smoothFactor * 0.95)
+            
+            -- Lock strength tightens the aim (makes it stick to target more)
+            local effectiveFactor = baseFactor * (1 + (lockStrength - 0.5) * 0.5)
+            effectiveFactor = math.clamp(effectiveFactor, 0.03, 1)
             
             local moveX = deltaX * effectiveFactor
             local moveY = deltaY * effectiveFactor
@@ -2645,3 +2652,4 @@ print("💾 Settings auto-save ENABLED")
 print("🛡️ Protected players: " .. #ProtectedPlayers)
 print("⌨️ Keybinds work even when menu is closed!")
 print("🔫 Rapid Fire added - Click button to toggle ON/OFF")
+print("🎯 Smoothness: 0 = rage (instant), 100 = max legit (slow smooth)")
