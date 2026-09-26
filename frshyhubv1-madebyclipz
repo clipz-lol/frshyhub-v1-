@@ -25,6 +25,7 @@
     - SLOTS TAB - 10 nameable save slots
     - CLEAN UI - Organized like ClipzWare
     - RAPID FIRE - Insane fire rate
+    - ESP - Box, Name, Health, Distance, Skeleton
 ]]
 
 -- Check if the game is loaded
@@ -46,6 +47,7 @@ local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local HttpService = game:GetService("HttpService")
 
 -- Wait for LocalPlayer
 while not LocalPlayer do
@@ -62,14 +64,16 @@ local Keybinds = {
     ToggleNoclip = nil,
     TeleportToTarget = nil,
     BringTarget = nil,
-    ToggleRapidFire = nil
+    ToggleRapidFire = nil,
+    ToggleESP = nil
 }
 
 local KeybindStates = {
     ToggleAimbot = false,
     ToggleFly = false,
     ToggleNoclip = false,
-    ToggleRapidFire = false
+    ToggleRapidFire = false,
+    ToggleESP = false
 }
 
 local KeybindDebounce = {
@@ -78,7 +82,8 @@ local KeybindDebounce = {
     ToggleNoclip = false,
     TeleportToTarget = false,
     BringTarget = false,
-    ToggleRapidFire = false
+    ToggleRapidFire = false,
+    ToggleESP = false
 }
 
 -- ============================================
@@ -90,7 +95,7 @@ local Settings = {
     TeamCheck = true,
     WallCheck = true,
     AimFOV = 100,
-    Smoothness = 100,  -- 0 = rage (instant), 100 = max legit (slow smooth)
+    Smoothness = 100,
     ShowFOV = true,
     FlyEnabled = false,
     NoclipEnabled = false,
@@ -110,7 +115,22 @@ local Settings = {
     Keybind_ToggleNoclip = "None",
     Keybind_TeleportToTarget = "None",
     Keybind_BringTarget = "None",
-    Keybind_ToggleRapidFire = "None"
+    Keybind_ToggleRapidFire = "None",
+    Keybind_ToggleESP = "None",
+    -- ESP Settings
+    ESPEnabled = false,
+    ESPBox = true,
+    ESPName = true,
+    ESPHealth = true,
+    ESPDistance = false,
+    ESPSkeleton = false,
+    ESPTeamCheck = true,
+    ESPFriendCheck = true,
+    ESPColorMode = "Team", -- "Team", "Custom", "Health"
+    ESPCustomColor = {255, 0, 0},
+    ESPBoxThickness = 1,
+    ESPTextSize = 13,
+    ESPShowLocal = false
 }
 
 local function StringToKeyCode(str)
@@ -134,7 +154,7 @@ local function LoadSettings()
     end)
     
     if success and data then
-        local decoded = game:GetService("HttpService"):JSONDecode(data)
+        local decoded = HttpService:JSONDecode(data)
         if decoded then
             for key, value in pairs(Settings) do
                 if decoded[key] ~= nil then
@@ -149,7 +169,7 @@ end
 
 local function SaveSettings()
     local success, err = pcall(function()
-        local encoded = game:GetService("HttpService"):JSONEncode(Settings)
+        local encoded = HttpService:JSONEncode(Settings)
         writefile("FRShYHub_Settings.txt", encoded)
     end)
     
@@ -166,6 +186,7 @@ Keybinds.ToggleNoclip = StringToKeyCode(Settings.Keybind_ToggleNoclip)
 Keybinds.TeleportToTarget = StringToKeyCode(Settings.Keybind_TeleportToTarget)
 Keybinds.BringTarget = StringToKeyCode(Settings.Keybind_BringTarget)
 Keybinds.ToggleRapidFire = StringToKeyCode(Settings.Keybind_ToggleRapidFire)
+Keybinds.ToggleESP = StringToKeyCode(Settings.Keybind_ToggleESP)
 
 for key, value in pairs(Settings) do
     if key ~= "ProtectedPlayers" and key ~= "FOVShape" and key ~= "FOVColor" and not string.match(key, "Keybind_") then
@@ -193,7 +214,7 @@ local function LoadSlotNames()
     end)
     
     if success and data then
-        local decoded = game:GetService("HttpService"):JSONDecode(data)
+        local decoded = HttpService:JSONDecode(data)
         if decoded then
             SlotNames = decoded
             return true
@@ -204,7 +225,7 @@ end
 
 local function SaveSlotNames()
     local success, err = pcall(function()
-        local encoded = game:GetService("HttpService"):JSONEncode(SlotNames)
+        local encoded = HttpService:JSONEncode(SlotNames)
         writefile(GetSlotNamesFilename(), encoded)
     end)
 end
@@ -254,11 +275,25 @@ local function SaveToSlot(slotNumber)
         Keybind_ToggleNoclip = Settings.Keybind_ToggleNoclip,
         Keybind_TeleportToTarget = Settings.Keybind_TeleportToTarget,
         Keybind_BringTarget = Settings.Keybind_BringTarget,
-        Keybind_ToggleRapidFire = Settings.Keybind_ToggleRapidFire
+        Keybind_ToggleRapidFire = Settings.Keybind_ToggleRapidFire,
+        Keybind_ToggleESP = Settings.Keybind_ToggleESP,
+        ESPEnabled = Settings.ESPEnabled,
+        ESPBox = Settings.ESPBox,
+        ESPName = Settings.ESPName,
+        ESPHealth = Settings.ESPHealth,
+        ESPDistance = Settings.ESPDistance,
+        ESPSkeleton = Settings.ESPSkeleton,
+        ESPTeamCheck = Settings.ESPTeamCheck,
+        ESPFriendCheck = Settings.ESPFriendCheck,
+        ESPColorMode = Settings.ESPColorMode,
+        ESPCustomColor = Settings.ESPCustomColor,
+        ESPBoxThickness = Settings.ESPBoxThickness,
+        ESPTextSize = Settings.ESPTextSize,
+        ESPShowLocal = Settings.ESPShowLocal
     }
     
     local success, err = pcall(function()
-        local encoded = game:GetService("HttpService"):JSONEncode(slotData)
+        local encoded = HttpService:JSONEncode(slotData)
         writefile(GetSlotFilename(slotNumber), encoded)
     end)
     
@@ -278,7 +313,7 @@ local function LoadFromSlot(slotNumber)
         return false
     end
     
-    local decoded = game:GetService("HttpService"):JSONDecode(data)
+    local decoded = HttpService:JSONDecode(data)
     if not decoded then
         return false
     end
@@ -299,6 +334,8 @@ local function LoadFromSlot(slotNumber)
             Settings.FOVColor = value
         elseif key == "FOVBorderSize" then
             Settings.FOVBorderSize = value
+        elseif key == "ESPCustomColor" then
+            Settings.ESPCustomColor = value
         elseif string.match(key, "Keybind_") then
             Settings[key] = value
         else
@@ -313,11 +350,13 @@ local function LoadFromSlot(slotNumber)
     Keybinds.TeleportToTarget = StringToKeyCode(Settings.Keybind_TeleportToTarget)
     Keybinds.BringTarget = StringToKeyCode(Settings.Keybind_BringTarget)
     Keybinds.ToggleRapidFire = StringToKeyCode(Settings.Keybind_ToggleRapidFire)
+    Keybinds.ToggleESP = StringToKeyCode(Settings.Keybind_ToggleESP)
     
     SaveSettings()
     UpdateFOVCircle()
     UpdateKeybindLabels()
     UpdateRapidFireButton()
+    UpdateESPToggle()
     return true
 end
 
@@ -327,14 +366,15 @@ local function GetSlotInfo(slotNumber)
     end)
     
     if success and data then
-        local decoded = game:GetService("HttpService"):JSONDecode(data)
+        local decoded = HttpService:JSONDecode(data)
         if decoded then
             local name = GetSlotName(slotNumber)
             return name .. " | FOV:" .. (decoded.AimFOV or "?") .. 
                    " | Sm:" .. tostring(decoded.Smoothness or 0) ..
                    " | Pred:" .. tostring((decoded.Prediction or 0) * 100) ..
                    " | Lock:" .. tostring((decoded.AimLockStrength or 0) * 100) .. "%" ..
-                   " | RF:" .. (decoded.RapidFireEnabled and "ON" or "OFF")
+                   " | RF:" .. (decoded.RapidFireEnabled and "ON" or "OFF") ..
+                   " | ESP:" .. (decoded.ESPEnabled and "ON" or "OFF")
         end
     end
     local name = GetSlotName(slotNumber)
@@ -544,6 +584,419 @@ local function UpdateRapidFireButton()
                 child.Text = "🔫 Rapid Fire: " .. (getgenv().RapidFireEnabled and "ON" or "OFF")
                 child.TextColor3 = getgenv().RapidFireEnabled and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
                 child.BorderColor3 = getgenv().RapidFireEnabled and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
+                break
+            end
+        end
+    end
+end
+
+-- ============================================
+-- ESP SYSTEM
+-- ============================================
+
+local ESPDrawings = {}
+local ESPConnection = nil
+local ESPFolder = nil
+
+-- Create ESP folder in CoreGui
+local function CreateESPFolder()
+    if ESPFolder then
+        pcall(function() ESPFolder:Destroy() end)
+    end
+    ESPFolder = Instance.new("Folder")
+    ESPFolder.Name = "FRShYHub_ESP"
+    ESPFolder.Parent = CoreGui
+    return ESPFolder
+end
+
+-- Clean up ESP for a player
+local function CleanupESP(player)
+    if ESPDrawings[player] then
+        for _, drawing in pairs(ESPDrawings[player]) do
+            pcall(function() drawing:Remove() end)
+        end
+        ESPDrawings[player] = nil
+    end
+end
+
+-- Clean up all ESP
+local function CleanupAllESP()
+    for player, _ in pairs(ESPDrawings) do
+        CleanupESP(player)
+    end
+    ESPDrawings = {}
+end
+
+-- Get ESP color for player
+local function GetESPColor(player)
+    if Settings.ESPColorMode == "Health" then
+        local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            local healthPercent = humanoid.Health / humanoid.MaxHealth
+            if healthPercent > 0.75 then
+                return Color3.fromRGB(0, 255, 0)
+            elseif healthPercent > 0.5 then
+                return Color3.fromRGB(255, 255, 0)
+            elseif healthPercent > 0.25 then
+                return Color3.fromRGB(255, 150, 0)
+            else
+                return Color3.fromRGB(255, 0, 0)
+            end
+        end
+        return Color3.fromRGB(255, 255, 255)
+    elseif Settings.ESPColorMode == "Custom" then
+        return Color3.fromRGB(Settings.ESPCustomColor[1], Settings.ESPCustomColor[2], Settings.ESPCustomColor[3])
+    else -- Team
+        if player.Team and LocalPlayer.Team then
+            if player.Team == LocalPlayer.Team then
+                return Color3.fromRGB(0, 255, 0) -- Green for teammates
+            else
+                return Color3.fromRGB(255, 0, 0) -- Red for enemies
+            end
+        end
+        return Color3.fromRGB(255, 255, 255)
+    end
+end
+
+-- Check if player should have ESP
+local function ShouldESP(player)
+    if not Settings.ESPEnabled then return false end
+    if player == LocalPlayer and not Settings.ESPShowLocal then return false end
+    if not player.Character then return false end
+    
+    local humanoid = player.Character:FindFirstChild("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
+    
+    if Settings.ESPFriendCheck and IsProtected(player) then return false end
+    
+    if Settings.ESPTeamCheck and player.Team and LocalPlayer.Team then
+        if player.Team == LocalPlayer.Team then return false end
+    end
+    
+    return true
+end
+
+-- Create ESP drawings for a player
+local function CreateESP(player)
+    if ESPDrawings[player] then return end
+    
+    local drawings = {}
+    
+    -- Box ESP
+    if Settings.ESPBox then
+        drawings.Box = Drawing.new("Square")
+        drawings.Box.Thickness = Settings.ESPBoxThickness
+        drawings.Box.Filled = false
+        drawings.Box.Transparency = 1
+        drawings.Box.Visible = false
+    end
+    
+    -- Name ESP
+    if Settings.ESPName then
+        drawings.Name = Drawing.new("Text")
+        drawings.Name.Size = Settings.ESPTextSize
+        drawings.Name.Center = true
+        drawings.Name.Outline = true
+        drawings.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
+        drawings.Name.Visible = false
+    end
+    
+    -- Health ESP
+    if Settings.ESPHealth then
+        drawings.HealthBar = Drawing.new("Line")
+        drawings.HealthBar.Thickness = 2
+        drawings.HealthBar.Visible = false
+        
+        drawings.HealthBarBG = Drawing.new("Line")
+        drawings.HealthBarBG.Thickness = 2
+        drawings.HealthBarBG.Color = Color3.fromRGB(0, 0, 0)
+        drawings.HealthBarBG.Visible = false
+    end
+    
+    -- Distance ESP
+    if Settings.ESPDistance then
+        drawings.Distance = Drawing.new("Text")
+        drawings.Distance.Size = Settings.ESPTextSize - 2
+        drawings.Distance.Center = true
+        drawings.Distance.Outline = true
+        drawings.Distance.OutlineColor = Color3.fromRGB(0, 0, 0)
+        drawings.Distance.Visible = false
+    end
+    
+    -- Skeleton ESP
+    if Settings.ESPSkeleton then
+        -- Head to Upper Torso
+        drawings.SkeletonHead = Drawing.new("Line")
+        drawings.SkeletonHead.Thickness = 1
+        drawings.SkeletonHead.Visible = false
+        
+        -- Upper Torso to Lower Torso
+        drawings.SkeletonTorso = Drawing.new("Line")
+        drawings.SkeletonTorso.Thickness = 1
+        drawings.SkeletonTorso.Visible = false
+        
+        -- Upper Torso to Left Arm
+        drawings.SkeletonLeftArm = Drawing.new("Line")
+        drawings.SkeletonLeftArm.Thickness = 1
+        drawings.SkeletonLeftArm.Visible = false
+        
+        -- Upper Torso to Right Arm
+        drawings.SkeletonRightArm = Drawing.new("Line")
+        drawings.SkeletonRightArm.Thickness = 1
+        drawings.SkeletonRightArm.Visible = false
+        
+        -- Lower Torso to Left Leg
+        drawings.SkeletonLeftLeg = Drawing.new("Line")
+        drawings.SkeletonLeftLeg.Thickness = 1
+        drawings.SkeletonLeftLeg.Visible = false
+        
+        -- Lower Torso to Right Leg
+        drawings.SkeletonRightLeg = Drawing.new("Line")
+        drawings.SkeletonRightLeg.Thickness = 1
+        drawings.SkeletonRightLeg.Visible = false
+    end
+    
+    ESPDrawings[player] = drawings
+end
+
+-- Update ESP for a player
+local function UpdateESP(player)
+    local drawings = ESPDrawings[player]
+    if not drawings then return end
+    
+    if not ShouldESP(player) then
+        -- Hide all drawings
+        for _, drawing in pairs(drawings) do
+            pcall(function() drawing.Visible = false end)
+        end
+        return
+    end
+    
+    local character = player.Character
+    if not character then
+        for _, drawing in pairs(drawings) do
+            pcall(function() drawing.Visible = false end)
+        end
+        return
+    end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    local head = character:FindFirstChild("Head")
+    local upperTorso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+    local lowerTorso = character:FindFirstChild("LowerTorso") or character:FindFirstChild("Torso")
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not head or not humanoidRootPart then
+        for _, drawing in pairs(drawings) do
+            pcall(function() drawing.Visible = false end)
+        end
+        return
+    end
+    
+    -- Get screen position
+    local headPos, headOnScreen = Camera:WorldToViewportPoint(head.Position)
+    local rootPos, rootOnScreen = Camera:WorldToViewportPoint(humanoidRootPart.Position)
+    
+    if not headOnScreen and not rootOnScreen then
+        for _, drawing in pairs(drawings) do
+            pcall(function() drawing.Visible = false end)
+        end
+        return
+    end
+    
+    local color = GetESPColor(player)
+    
+    -- Calculate box dimensions
+    local topPos = headPos
+    local bottomPos = rootPos
+    
+    -- Add some padding
+    local boxHeight = math.abs(topPos.Y - bottomPos.Y) * 1.5
+    local boxWidth = boxHeight * 0.6
+    
+    local boxX = topPos.X - boxWidth / 2
+    local boxY = topPos.Y - boxHeight * 0.15
+    
+    -- Box ESP
+    if drawings.Box then
+        drawings.Box.Size = Vector2.new(boxWidth, boxHeight)
+        drawings.Box.Position = Vector2.new(boxX, boxY)
+        drawings.Box.Color = color
+        drawings.Box.Visible = true
+    end
+    
+    -- Name ESP
+    if drawings.Name then
+        drawings.Name.Text = player.Name
+        drawings.Name.Position = Vector2.new(topPos.X, boxY - 18)
+        drawings.Name.Color = color
+        drawings.Name.Visible = true
+    end
+    
+    -- Health ESP
+    if drawings.HealthBar and humanoid then
+        local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+        local barHeight = boxHeight
+        local barX = boxX - 8
+        
+        drawings.HealthBarBG.From = Vector2.new(barX, boxY)
+        drawings.HealthBarBG.To = Vector2.new(barX, boxY + barHeight)
+        drawings.HealthBarBG.Visible = true
+        
+        drawings.HealthBar.From = Vector2.new(barX, boxY + barHeight * (1 - healthPercent))
+        drawings.HealthBar.To = Vector2.new(barX, boxY + barHeight)
+        drawings.HealthBar.Color = Color3.fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
+        drawings.HealthBar.Visible = true
+    end
+    
+    -- Distance ESP
+    if drawings.Distance and humanoidRootPart then
+        local distance = (humanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+        drawings.Distance.Text = math.floor(distance) .. " studs"
+        drawings.Distance.Position = Vector2.new(topPos.X, boxY + boxHeight + 2)
+        drawings.Distance.Color = color
+        drawings.Distance.Visible = true
+    end
+    
+    -- Skeleton ESP
+    if Settings.ESPSkeleton and upperTorso and lowerTorso then
+        local function getPartPos(partName)
+            local part = character:FindFirstChild(partName)
+            if part then
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    return Vector2.new(pos.X, pos.Y)
+                end
+            end
+            return nil
+        end
+        
+        local headScreen = getPartPos("Head")
+        local upperTorsoScreen = getPartPos("UpperTorso") or getPartPos("Torso")
+        local lowerTorsoScreen = getPartPos("LowerTorso") or getPartPos("Torso")
+        local leftArmScreen = getPartPos("LeftHand") or getPartPos("Left Arm")
+        local rightArmScreen = getPartPos("RightHand") or getPartPos("Right Arm")
+        local leftLegScreen = getPartPos("LeftFoot") or getPartPos("Left Leg")
+        local rightLegScreen = getPartPos("RightFoot") or getPartPos("Right Leg")
+        
+        if drawings.SkeletonHead and headScreen and upperTorsoScreen then
+            drawings.SkeletonHead.From = headScreen
+            drawings.SkeletonHead.To = upperTorsoScreen
+            drawings.SkeletonHead.Color = color
+            drawings.SkeletonHead.Visible = true
+        end
+        
+        if drawings.SkeletonTorso and upperTorsoScreen and lowerTorsoScreen then
+            drawings.SkeletonTorso.From = upperTorsoScreen
+            drawings.SkeletonTorso.To = lowerTorsoScreen
+            drawings.SkeletonTorso.Color = color
+            drawings.SkeletonTorso.Visible = true
+        end
+        
+        if drawings.SkeletonLeftArm and upperTorsoScreen and leftArmScreen then
+            drawings.SkeletonLeftArm.From = upperTorsoScreen
+            drawings.SkeletonLeftArm.To = leftArmScreen
+            drawings.SkeletonLeftArm.Color = color
+            drawings.SkeletonLeftArm.Visible = true
+        end
+        
+        if drawings.SkeletonRightArm and upperTorsoScreen and rightArmScreen then
+            drawings.SkeletonRightArm.From = upperTorsoScreen
+            drawings.SkeletonRightArm.To = rightArmScreen
+            drawings.SkeletonRightArm.Color = color
+            drawings.SkeletonRightArm.Visible = true
+        end
+        
+        if drawings.SkeletonLeftLeg and lowerTorsoScreen and leftLegScreen then
+            drawings.SkeletonLeftLeg.From = lowerTorsoScreen
+            drawings.SkeletonLeftLeg.To = leftLegScreen
+            drawings.SkeletonLeftLeg.Color = color
+            drawings.SkeletonLeftLeg.Visible = true
+        end
+        
+        if drawings.SkeletonRightLeg and lowerTorsoScreen and rightLegScreen then
+            drawings.SkeletonRightLeg.From = lowerTorsoScreen
+            drawings.SkeletonRightLeg.To = rightLegScreen
+            drawings.SkeletonRightLeg.Color = color
+            drawings.SkeletonRightLeg.Visible = true
+        end
+    end
+end
+
+-- Update all ESP
+local function UpdateAllESP()
+    if not Settings.ESPEnabled then
+        for player, drawings in pairs(ESPDrawings) do
+            for _, drawing in pairs(drawings) do
+                pcall(function() drawing.Visible = false end)
+            end
+        end
+        return
+    end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if ShouldESP(player) then
+            CreateESP(player)
+            UpdateESP(player)
+        else
+            if ESPDrawings[player] then
+                for _, drawing in pairs(ESPDrawings[player]) do
+                    pcall(function() drawing.Visible = false end)
+                end
+            end
+        end
+    end
+end
+
+-- Start ESP loop
+local function StartESP()
+    if ESPConnection then return end
+    
+    ESPConnection = RunService.RenderStepped:Connect(function()
+        UpdateAllESP()
+    end)
+end
+
+-- Stop ESP
+local function StopESP()
+    if ESPConnection then
+        ESPConnection:Disconnect()
+        ESPConnection = nil
+    end
+    
+    for player, drawings in pairs(ESPDrawings) do
+        for _, drawing in pairs(drawings) do
+            pcall(function() drawing.Visible = false end)
+        end
+    end
+end
+
+-- Toggle ESP
+local function ToggleESP()
+    Settings.ESPEnabled = not Settings.ESPEnabled
+    getgenv().ESPEnabled = Settings.ESPEnabled
+    SaveSettings()
+    
+    if Settings.ESPEnabled then
+        StartESP()
+        print("👁️ ESP ENABLED")
+    else
+        StopESP()
+        print("👁️ ESP DISABLED")
+    end
+    
+    UpdateESPToggle()
+    return Settings.ESPEnabled
+end
+
+-- Update ESP toggle button
+local function UpdateESPToggle()
+    if MainFrame then
+        for _, child in pairs(MainFrame:GetDescendants()) do
+            if child:IsA("TextButton") and child.Name == "ESPToggleBtn" then
+                child.Text = "👁️ ESP: " .. (Settings.ESPEnabled and "ON" or "OFF")
+                child.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
+                child.BorderColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
                 break
             end
         end
@@ -852,7 +1305,7 @@ local function UpdateKeybindLabels()
     for action, button in pairs(KeybindButtons) do
         if button then
             local key = Keybinds[action]
-            local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
+            local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("(ESP)", "ESP")
             button.Text = displayName .. ": " .. (key and KeyCodeToString(key) or "None")
         end
     end
@@ -904,7 +1357,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             WaitingForKeybindAction = nil
             WaitingForKeybindButton = nil
             if button then
-                local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
+                local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("(ESP)", "ESP")
                 button.Text = displayName .. ": " .. (Keybinds[action] and KeyCodeToString(Keybinds[action]) or "None")
                 button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
             end
@@ -916,7 +1369,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         SaveSettings()
         
         if button then
-            local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
+            local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("(ESP)", "ESP")
             button.Text = displayName .. ": " .. KeyCodeToString(key)
             button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
         end
@@ -1045,6 +1498,29 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         print("Noclip " .. (getgenv().NoclipEnabled and "ENABLED" or "DISABLED"))
         task.delay(0.2, function()
             KeybindDebounce.ToggleNoclip = false
+        end)
+        return
+    end
+    
+    -- Toggle ESP
+    if Keybinds.ToggleESP and input.KeyCode == Keybinds.ToggleESP and not KeybindDebounce.ToggleESP then
+        KeybindDebounce.ToggleESP = true
+        ToggleESP()
+        
+        if SaveStatusLabel then
+            SaveStatusLabel.Text = "👁️ ESP " .. (Settings.ESPEnabled and "ON" or "OFF")
+            SaveStatusLabel.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 100, 100)
+            SaveStatusLabel.Visible = true
+            task.delay(1.5, function()
+                if SaveStatusLabel then
+                    SaveStatusLabel.Visible = false
+                end
+            end)
+        end
+        
+        print("ESP " .. (Settings.ESPEnabled and "ENABLED" or "DISABLED"))
+        task.delay(0.2, function()
+            KeybindDebounce.ToggleESP = false
         end)
         return
     end
@@ -1212,7 +1688,9 @@ local function GoLegit()
     getgenv().FlyEnabled = false
     getgenv().NoclipEnabled = false
     getgenv().RapidFireEnabled = false
+    Settings.ESPEnabled = false
     StopRapidFire()
+    StopESP()
     
     SaveSettings()
     
@@ -1224,6 +1702,8 @@ local function GoLegit()
         pcall(function() FOVCircle:Destroy() end)
         FOVCircle = nil
     end
+    
+    CleanupAllESP()
     
     ScriptLoaded = false
     print("FRShYHub V1 Unloaded - Settings Saved!")
@@ -1283,10 +1763,11 @@ local function CreateGUI()
 
     -- TABS
     local tabY = 75
-    local tabs = {"Aimbot", "Visuals", "Keybinds", "Friend Manager", "Slots", "Misc"}
+    local tabs = {"Aimbot", "Visuals", "ESP", "Keybinds", "Friend Manager", "Slots", "Misc"}
     local tabColors = {
         Aimbot = Color3.fromRGB(255, 50, 50),
         Visuals = Color3.fromRGB(50, 200, 255),
+        ESP = Color3.fromRGB(0, 255, 100),
         Keybinds = Color3.fromRGB(255, 200, 50),
         ["Friend Manager"] = Color3.fromRGB(255, 215, 0),
         Slots = Color3.fromRGB(150, 50, 255),
@@ -1643,6 +2124,267 @@ local function CreateGUI()
     end)
 
     -- ============================================
+    -- ESP TAB
+    -- ============================================
+    
+    local ESPTab = Instance.new("Frame")
+    ESPTab.Size = UDim2.new(1, 0, 1, 0)
+    ESPTab.Position = UDim2.new(0, 0, 0, 0)
+    ESPTab.BackgroundTransparency = 1
+    ESPTab.Visible = false
+    ESPTab.Parent = ContentFrame
+    TabContents["ESP"] = ESPTab
+
+    local function CreateESPButton(name, yPos, getter, setter)
+        local Button = Instance.new("TextButton")
+        Button.Size = UDim2.new(1, 0, 0, 30)
+        Button.Position = UDim2.new(0, 0, 0, yPos)
+        Button.Text = name .. ": " .. (getter() and "ON" or "OFF")
+        Button.TextColor3 = Color3.fromRGB(0, 255, 100)
+        Button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        Button.Font = Enum.Font.Gotham
+        Button.TextSize = 13
+        Button.BorderSizePixel = 1
+        Button.BorderColor3 = Color3.fromRGB(0, 255, 100)
+        Button.Parent = ESPTab
+        
+        Button.MouseEnter:Connect(function()
+            Button.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        end)
+        Button.MouseLeave:Connect(function()
+            Button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        end)
+
+        Button.MouseButton1Click:Connect(function()
+            local newState = not getter()
+            setter(newState)
+            Button.Text = name .. ": " .. (newState and "ON" or "OFF")
+            SaveSettings()
+        end)
+        return Button
+    end
+
+    -- ESP Master Toggle
+    local ESPToggleBtn = Instance.new("TextButton")
+    ESPToggleBtn.Name = "ESPToggleBtn"
+    ESPToggleBtn.Size = UDim2.new(1, 0, 0, 40)
+    ESPToggleBtn.Position = UDim2.new(0, 0, 0, 0)
+    ESPToggleBtn.Text = "👁️ ESP: " .. (Settings.ESPEnabled and "ON" or "OFF")
+    ESPToggleBtn.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
+    ESPToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ESPToggleBtn.Font = Enum.Font.GothamBold
+    ESPToggleBtn.TextSize = 15
+    ESPToggleBtn.BorderSizePixel = 2
+    ESPToggleBtn.BorderColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
+    ESPToggleBtn.Parent = ESPTab
+
+    ESPToggleBtn.MouseEnter:Connect(function()
+        ESPToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    end)
+    ESPToggleBtn.MouseLeave:Connect(function()
+        ESPToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    end)
+
+    ESPToggleBtn.MouseButton1Click:Connect(function()
+        ToggleESP()
+    end)
+
+    -- ESP Options Header
+    local ESPOptionsHeader = Instance.new("TextLabel")
+    ESPOptionsHeader.Size = UDim2.new(1, 0, 0, 20)
+    ESPOptionsHeader.Position = UDim2.new(0, 0, 0, 50)
+    ESPOptionsHeader.Text = "─── ESP Options ───"
+    ESPOptionsHeader.TextColor3 = Color3.fromRGB(0, 200, 100)
+    ESPOptionsHeader.BackgroundTransparency = 1
+    ESPOptionsHeader.Font = Enum.Font.GothamBold
+    ESPOptionsHeader.TextSize = 12
+    ESPOptionsHeader.Parent = ESPTab
+
+    CreateESPButton("Box", 75, function() return Settings.ESPBox end, function(v) 
+        Settings.ESPBox = v
+        CleanupAllESP()
+        if Settings.ESPEnabled then StartESP() end
+    end)
+    CreateESPButton("Name", 110, function() return Settings.ESPName end, function(v) 
+        Settings.ESPName = v
+        CleanupAllESP()
+        if Settings.ESPEnabled then StartESP() end
+    end)
+    CreateESPButton("Health Bar", 145, function() return Settings.ESPHealth end, function(v) 
+        Settings.ESPHealth = v
+        CleanupAllESP()
+        if Settings.ESPEnabled then StartESP() end
+    end)
+    CreateESPButton("Distance", 180, function() return Settings.ESPDistance end, function(v) 
+        Settings.ESPDistance = v
+        CleanupAllESP()
+        if Settings.ESPEnabled then StartESP() end
+    end)
+    CreateESPButton("Skeleton", 215, function() return Settings.ESPSkeleton end, function(v) 
+        Settings.ESPSkeleton = v
+        CleanupAllESP()
+        if Settings.ESPEnabled then StartESP() end
+    end)
+    CreateESPButton("Team Check", 250, function() return Settings.ESPTeamCheck end, function(v) Settings.ESPTeamCheck = v end)
+    CreateESPButton("Friend Check", 285, function() return Settings.ESPFriendCheck end, function(v) Settings.ESPFriendCheck = v end)
+    CreateESPButton("Show Local", 320, function() return Settings.ESPShowLocal end, function(v) Settings.ESPShowLocal = v end)
+
+    -- Color Mode
+    local ColorModeBtn = Instance.new("TextButton")
+    ColorModeBtn.Size = UDim2.new(1, 0, 0, 30)
+    ColorModeBtn.Position = UDim2.new(0, 0, 0, 355)
+    ColorModeBtn.Text = "Color Mode: " .. Settings.ESPColorMode
+    ColorModeBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
+    ColorModeBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ColorModeBtn.Font = Enum.Font.Gotham
+    ColorModeBtn.TextSize = 13
+    ColorModeBtn.BorderSizePixel = 1
+    ColorModeBtn.BorderColor3 = Color3.fromRGB(0, 255, 100)
+    ColorModeBtn.Parent = ESPTab
+
+    ColorModeBtn.MouseButton1Click:Connect(function()
+        if Settings.ESPColorMode == "Team" then
+            Settings.ESPColorMode = "Custom"
+        elseif Settings.ESPColorMode == "Custom" then
+            Settings.ESPColorMode = "Health"
+        else
+            Settings.ESPColorMode = "Team"
+        end
+        ColorModeBtn.Text = "Color Mode: " .. Settings.ESPColorMode
+        SaveSettings()
+    end)
+
+    -- ESP Custom Color
+    local ESPColorContainer = Instance.new("Frame")
+    ESPColorContainer.Size = UDim2.new(1, 0, 0, 45)
+    ESPColorContainer.Position = UDim2.new(0, 0, 0, 390)
+    ESPColorContainer.BackgroundTransparency = 1
+    ESPColorContainer.Parent = ESPTab
+
+    local ESPColorLabel = Instance.new("TextLabel")
+    ESPColorLabel.Size = UDim2.new(1, 0, 0, 20)
+    ESPColorLabel.Position = UDim2.new(0, 0, 0, 0)
+    ESPColorLabel.Text = "Custom Color (R,G,B): " .. Settings.ESPCustomColor[1] .. "," .. Settings.ESPCustomColor[2] .. "," .. Settings.ESPCustomColor[3]
+    ESPColorLabel.TextColor3 = Color3.fromRGB(0, 200, 100)
+    ESPColorLabel.BackgroundTransparency = 1
+    ESPColorLabel.Font = Enum.Font.Gotham
+    ESPColorLabel.TextSize = 13
+    ESPColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ESPColorLabel.Parent = ESPColorContainer
+
+    local ESPColorInput = Instance.new("TextBox")
+    ESPColorInput.Size = UDim2.new(1, 0, 0, 22)
+    ESPColorInput.Position = UDim2.new(0, 0, 0, 22)
+    ESPColorInput.Text = Settings.ESPCustomColor[1] .. "," .. Settings.ESPCustomColor[2] .. "," .. Settings.ESPCustomColor[3]
+    ESPColorInput.TextColor3 = Color3.fromRGB(0, 255, 100)
+    ESPColorInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ESPColorInput.Font = Enum.Font.Gotham
+    ESPColorInput.TextSize = 13
+    ESPColorInput.Parent = ESPColorContainer
+    
+    ESPColorInput.FocusLost:Connect(function()
+        local parts = {}
+        for part in string.gmatch(ESPColorInput.Text, "[^,]+") do
+            table.insert(parts, tonumber(part))
+        end
+        if #parts == 3 then
+            local r = math.clamp(parts[1] or 0, 0, 255)
+            local g = math.clamp(parts[2] or 0, 0, 255)
+            local b = math.clamp(parts[3] or 0, 0, 255)
+            Settings.ESPCustomColor = {r, g, b}
+            ESPColorLabel.Text = "Custom Color (R,G,B): " .. r .. "," .. g .. "," .. b
+            ESPColorInput.Text = r .. "," .. g .. "," .. b
+            SaveSettings()
+        else
+            ESPColorInput.Text = Settings.ESPCustomColor[1] .. "," .. Settings.ESPCustomColor[2] .. "," .. Settings.ESPCustomColor[3]
+        end
+    end)
+
+    -- ESP Box Thickness
+    local ESPThicknessContainer = Instance.new("Frame")
+    ESPThicknessContainer.Size = UDim2.new(1, 0, 0, 45)
+    ESPThicknessContainer.Position = UDim2.new(0, 0, 0, 440)
+    ESPThicknessContainer.BackgroundTransparency = 1
+    ESPThicknessContainer.Parent = ESPTab
+
+    local ESPThicknessLabel = Instance.new("TextLabel")
+    ESPThicknessLabel.Size = UDim2.new(1, 0, 0, 20)
+    ESPThicknessLabel.Position = UDim2.new(0, 0, 0, 0)
+    ESPThicknessLabel.Text = "Box Thickness: " .. Settings.ESPBoxThickness
+    ESPThicknessLabel.TextColor3 = Color3.fromRGB(0, 200, 100)
+    ESPThicknessLabel.BackgroundTransparency = 1
+    ESPThicknessLabel.Font = Enum.Font.Gotham
+    ESPThicknessLabel.TextSize = 13
+    ESPThicknessLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ESPThicknessLabel.Parent = ESPThicknessContainer
+
+    local ESPThicknessInput = Instance.new("TextBox")
+    ESPThicknessInput.Size = UDim2.new(1, 0, 0, 22)
+    ESPThicknessInput.Position = UDim2.new(0, 0, 0, 22)
+    ESPThicknessInput.Text = tostring(Settings.ESPBoxThickness)
+    ESPThicknessInput.TextColor3 = Color3.fromRGB(0, 255, 100)
+    ESPThicknessInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ESPThicknessInput.Font = Enum.Font.Gotham
+    ESPThicknessInput.TextSize = 13
+    ESPThicknessInput.Parent = ESPThicknessContainer
+    
+    ESPThicknessInput.FocusLost:Connect(function()
+        local val = tonumber(ESPThicknessInput.Text)
+        if val then
+            val = math.clamp(val, 1, 10)
+            Settings.ESPBoxThickness = val
+            ESPThicknessLabel.Text = "Box Thickness: " .. val
+            ESPThicknessInput.Text = tostring(val)
+            SaveSettings()
+        else
+            ESPThicknessInput.Text = tostring(Settings.ESPBoxThickness)
+        end
+    end)
+
+    -- ESP Text Size
+    local ESPTextSizeContainer = Instance.new("Frame")
+    ESPTextSizeContainer.Size = UDim2.new(1, 0, 0, 45)
+    ESPTextSizeContainer.Position = UDim2.new(0, 0, 0, 490)
+    ESPTextSizeContainer.BackgroundTransparency = 1
+    ESPTextSizeContainer.Parent = ESPTab
+
+    local ESPTextSizeLabel = Instance.new("TextLabel")
+    ESPTextSizeLabel.Size = UDim2.new(1, 0, 0, 20)
+    ESPTextSizeLabel.Position = UDim2.new(0, 0, 0, 0)
+    ESPTextSizeLabel.Text = "Text Size: " .. Settings.ESPTextSize
+    ESPTextSizeLabel.TextColor3 = Color3.fromRGB(0, 200, 100)
+    ESPTextSizeLabel.BackgroundTransparency = 1
+    ESPTextSizeLabel.Font = Enum.Font.Gotham
+    ESPTextSizeLabel.TextSize = 13
+    ESPTextSizeLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ESPTextSizeLabel.Parent = ESPTextSizeContainer
+
+    local ESPTextSizeInput = Instance.new("TextBox")
+    ESPTextSizeInput.Size = UDim2.new(1, 0, 0, 22)
+    ESPTextSizeInput.Position = UDim2.new(0, 0, 0, 22)
+    ESPTextSizeInput.Text = tostring(Settings.ESPTextSize)
+    ESPTextSizeInput.TextColor3 = Color3.fromRGB(0, 255, 100)
+    ESPTextSizeInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ESPTextSizeInput.Font = Enum.Font.Gotham
+    ESPTextSizeInput.TextSize = 13
+    ESPTextSizeInput.Parent = ESPTextSizeContainer
+    
+    ESPTextSizeInput.FocusLost:Connect(function()
+        local val = tonumber(ESPTextSizeInput.Text)
+        if val then
+            val = math.clamp(val, 8, 24)
+            Settings.ESPTextSize = val
+            ESPTextSizeLabel.Text = "Text Size: " .. val
+            ESPTextSizeInput.Text = tostring(val)
+            SaveSettings()
+            CleanupAllESP()
+            if Settings.ESPEnabled then StartESP() end
+        else
+            ESPTextSizeInput.Text = tostring(Settings.ESPTextSize)
+        end
+    end)
+
+    -- ============================================
     -- KEYBINDS TAB
     -- ============================================
     
@@ -1668,6 +2410,7 @@ local function CreateGUI()
         "ToggleAimbot",
         "ToggleFly",
         "ToggleNoclip",
+        "ToggleESP",
         "TeleportToTarget",
         "BringTarget",
         "ToggleRapidFire"
@@ -1686,7 +2429,7 @@ local function CreateGUI()
         local Label = Instance.new("TextLabel")
         Label.Size = UDim2.new(0.4, 0, 1, 0)
         Label.Position = UDim2.new(0, 5, 0, 0)
-        local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
+        local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("(ESP)", "ESP")
         Label.Text = displayName
         Label.TextColor3 = Color3.fromRGB(200, 200, 200)
         Label.BackgroundTransparency = 1
@@ -1737,6 +2480,7 @@ local function CreateGUI()
         Keybinds.TeleportToTarget = nil
         Keybinds.BringTarget = nil
         Keybinds.ToggleRapidFire = nil
+        Keybinds.ToggleESP = nil
         
         Settings.Keybind_ToggleAimbot = "None"
         Settings.Keybind_ToggleFly = "None"
@@ -1744,6 +2488,7 @@ local function CreateGUI()
         Settings.Keybind_TeleportToTarget = "None"
         Settings.Keybind_BringTarget = "None"
         Settings.Keybind_ToggleRapidFire = "None"
+        Settings.Keybind_ToggleESP = "None"
         SaveSettings()
         UpdateKeybindLabels()
         
@@ -1941,6 +2686,7 @@ local function CreateGUI()
                 UpdateBringList()
                 UpdateFOVCircle()
                 UpdateRapidFireButton()
+                UpdateESPToggle()
             else
                 SaveStatusLabel.Text = "❌ Slot " .. slotNumber .. " is empty"
                 SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
@@ -2282,6 +3028,7 @@ local function CreateGUI()
 
     UpdateKeybindLabels()
     UpdateRapidFireButton()
+    UpdateESPToggle()
 
     task.wait(0.5)
     UpdatePlayerList()
@@ -2320,6 +3067,7 @@ Players.PlayerRemoving:Connect(function(player)
     if ProtectedPlayersSet[player.Name] then
         RemoveProtectedPlayer(player)
     end
+    CleanupESP(player)
     task.wait(0.5)
     UpdatePlayerList()
     UpdateTeleportList()
@@ -2336,6 +3084,12 @@ LocalPlayer.CharacterAdded:Connect(function()
         StopRapidFire()
         task.wait(0.1)
         StartRapidFire()
+    end
+    
+    if Settings.ESPEnabled then
+        CleanupAllESP()
+        task.wait(0.2)
+        StartESP()
     end
 end)
 
@@ -2594,16 +3348,11 @@ RunService.RenderStepped:Connect(function()
             local deltaY = target.ScreenY - mousePos.Y
             
             local lockStrength = getgenv().AimLockStrength or 1.0
-            local smoothness = getgenv().Smoothness or 100  -- 0 = rage (instant), 100 = max legit
+            local smoothness = getgenv().Smoothness or 100
             
-            -- Higher smoothness = more legit (slower/smoother aim)
-            -- 0   -> instant snap (rage)
-            -- 100 -> very gradual, legit-looking tracking (still locks)
-            local smoothFactor = smoothness / 100  -- 0 to 1
-            -- At 0: factor = 1 (instant). At 100: factor = 0.05 (slow smooth)
+            local smoothFactor = smoothness / 100
             local baseFactor = 1 - (smoothFactor * 0.95)
             
-            -- Lock strength tightens the aim (makes it stick to target more)
             local effectiveFactor = baseFactor * (1 + (lockStrength - 0.5) * 0.5)
             effectiveFactor = math.clamp(effectiveFactor, 0.03, 1)
             
@@ -2642,8 +3391,15 @@ ScriptLoaded = true
 
 ShowStartupMessage()
 
+-- Start ESP if it was enabled
+if Settings.ESPEnabled then
+    CreateESPFolder()
+    task.wait(0.5)
+    StartESP()
+end
+
 print("✅ FRShYHub V1 Loaded - Made by clipz!")
-print("📁 Tabs: Aimbot | Visuals | Keybinds | Friend Manager | Slots | Misc")
+print("📁 Tabs: Aimbot | Visuals | ESP | Keybinds | Friend Manager | Slots | Misc")
 print("🔑 Edit keybinds in the Keybinds tab! (All default to None)")
 print("🔒 Right Shift - Show/Hide GUI (FIXED)")
 print("🎯 Customize FOV in Visuals tab!")
@@ -2653,3 +3409,4 @@ print("🛡️ Protected players: " .. #ProtectedPlayers)
 print("⌨️ Keybinds work even when menu is closed!")
 print("🔫 Rapid Fire added - Click button to toggle ON/OFF")
 print("🎯 Smoothness: 0 = rage (instant), 100 = max legit (slow smooth)")
+print("👁️ ESP added - Box, Name, Health, Distance, Skeleton!")
