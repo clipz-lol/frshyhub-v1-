@@ -1,40 +1,28 @@
 --[[
-    FRSHYHUB V1
+    FRSHYHUB V1 - FIXED KEYBINDS
     Made by clipz
     Features:
     - Enhanced Aimbot - PERMANENT HEAD LOCK
-    - Show/Hide GUI (Right Shift) - FIXED
-    - Editable Keybinds for all features (Default: None)
+    - Show/Hide GUI (Right Shift)
+    - Editable Keybinds (WORKING)
     - FOV Circle with customization
-    - Smoothing adjustment (0 = rage, 100 = max legit)
-    - Team Check
-    - Wall Check
-    - Persistent Settings (saves between sessions)
+    - Smoothing adjustment
+    - Team Check / Wall Check
+    - Persistent Settings
     - Draggable GUI
-    - Fly
-    - Noclip
+    - Fly / Noclip
     - Go Legit Button
-    - FRIENDS SYSTEM - Click players to protect them
-    - SAVES PLAYER SETTINGS
-    - 10 SETTINGS SLOTS - Save/Load multiple configurations
-    - NAMEABLE SLOTS - Double-click to rename slots
-    - TELEPORT - Click players to teleport to them
-    - BRING PLAYERS - Click players to bring them to you
-    - SEARCH BARS - Filter players in teleport, bring, and friend lists
-    - FOV CUSTOMIZATION - Circle, Square, transparency, color
-    - SLOTS TAB - 10 nameable save slots
-    - CLEAN UI - Organized like ClipzWare
-    - RAPID FIRE - Insane fire rate
+    - FRIENDS SYSTEM
+    - 10 SETTINGS SLOTS
+    - TELEPORT / BRING PLAYERS
+    - SEARCH BARS
+    - RAPID FIRE
     - ESP - Box, Name, Health, Distance, Skeleton
 ]]
 
--- Check if the game is loaded
 local function WaitForGame()
-    while not game:IsLoaded() do
-        task.wait()
-    end
+    while not game:IsLoaded() do task.wait() end
 end
-
 WaitForGame()
 
 -- Services
@@ -49,10 +37,7 @@ local TweenService = game:GetService("TweenService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local HttpService = game:GetService("HttpService")
 
--- Wait for LocalPlayer
-while not LocalPlayer do
-    task.wait()
-end
+while not LocalPlayer do task.wait() end
 
 -- ============================================
 -- KEYBIND SETTINGS
@@ -68,14 +53,6 @@ local Keybinds = {
     ToggleESP = nil
 }
 
-local KeybindStates = {
-    ToggleAimbot = false,
-    ToggleFly = false,
-    ToggleNoclip = false,
-    ToggleRapidFire = false,
-    ToggleESP = false
-}
-
 local KeybindDebounce = {
     ToggleAimbot = false,
     ToggleFly = false,
@@ -87,7 +64,7 @@ local KeybindDebounce = {
 }
 
 -- ============================================
--- SIMPLE SETTINGS SYSTEM
+-- SETTINGS SYSTEM
 -- ============================================
 
 local Settings = {
@@ -117,7 +94,6 @@ local Settings = {
     Keybind_BringTarget = "None",
     Keybind_ToggleRapidFire = "None",
     Keybind_ToggleESP = "None",
-    -- ESP Settings
     ESPEnabled = false,
     ESPBox = true,
     ESPName = true,
@@ -126,7 +102,7 @@ local Settings = {
     ESPSkeleton = false,
     ESPTeamCheck = true,
     ESPFriendCheck = true,
-    ESPColorMode = "Team", -- "Team", "Custom", "Health"
+    ESPColorMode = "Team",
     ESPCustomColor = {255, 0, 0},
     ESPBoxThickness = 1,
     ESPTextSize = 13,
@@ -136,9 +112,7 @@ local Settings = {
 local function StringToKeyCode(str)
     if not str or str == "None" then return nil end
     for _, key in pairs(Enum.KeyCode:GetEnumItems()) do
-        if key.Name == str then
-            return key
-        end
+        if key.Name == str then return key end
     end
     return nil
 end
@@ -149,17 +123,12 @@ local function KeyCodeToString(key)
 end
 
 local function LoadSettings()
-    local success, data = pcall(function()
-        return readfile("FRShYHub_Settings.txt")
-    end)
-    
+    local success, data = pcall(function() return readfile("FRShYHub_Settings.txt") end)
     if success and data then
         local decoded = HttpService:JSONDecode(data)
         if decoded then
             for key, value in pairs(Settings) do
-                if decoded[key] ~= nil then
-                    Settings[key] = decoded[key]
-                end
+                if decoded[key] ~= nil then Settings[key] = decoded[key] end
             end
             return true
         end
@@ -168,14 +137,10 @@ local function LoadSettings()
 end
 
 local function SaveSettings()
-    local success, err = pcall(function()
+    pcall(function()
         local encoded = HttpService:JSONEncode(Settings)
         writefile("FRShYHub_Settings.txt", encoded)
     end)
-    
-    if not success then
-        warn("Failed to save settings: " .. tostring(err))
-    end
 end
 
 LoadSettings()
@@ -189,7 +154,7 @@ Keybinds.ToggleRapidFire = StringToKeyCode(Settings.Keybind_ToggleRapidFire)
 Keybinds.ToggleESP = StringToKeyCode(Settings.Keybind_ToggleESP)
 
 for key, value in pairs(Settings) do
-    if key ~= "ProtectedPlayers" and key ~= "FOVShape" and key ~= "FOVColor" and not string.match(key, "Keybind_") then
+    if key ~= "ProtectedPlayers" and key ~= "FOVShape" and key ~= "FOVColor" and key ~= "ESPCustomColor" and not string.match(key, "Keybind_") then
         getgenv()[key] = value
     end
 end
@@ -200,75 +165,46 @@ end
 
 local SlotNames = {}
 
-local function GetSlotFilename(slotNumber)
-    return "FRShYHub_Slot_" .. slotNumber .. ".txt"
-end
-
-local function GetSlotNamesFilename()
-    return "FRShYHub_Slot_Names.txt"
-end
+local function GetSlotFilename(slotNumber) return "FRShYHub_Slot_" .. slotNumber .. ".txt" end
+local function GetSlotNamesFilename() return "FRShYHub_Slot_Names.txt" end
 
 local function LoadSlotNames()
-    local success, data = pcall(function()
-        return readfile(GetSlotNamesFilename())
-    end)
-    
+    local success, data = pcall(function() return readfile(GetSlotNamesFilename()) end)
     if success and data then
         local decoded = HttpService:JSONDecode(data)
-        if decoded then
-            SlotNames = decoded
-            return true
-        end
+        if decoded then SlotNames = decoded; return true end
     end
     return false
 end
 
 local function SaveSlotNames()
-    local success, err = pcall(function()
-        local encoded = HttpService:JSONEncode(SlotNames)
-        writefile(GetSlotNamesFilename(), encoded)
+    pcall(function()
+        writefile(GetSlotNamesFilename(), HttpService:JSONEncode(SlotNames))
     end)
 end
 
 LoadSlotNames()
 
-local function GetSlotName(slotNumber)
-    return SlotNames[tostring(slotNumber)] or "Slot " .. slotNumber
-end
+local function GetSlotName(slotNumber) return SlotNames[tostring(slotNumber)] or "Slot " .. slotNumber end
 
 local function SetSlotName(slotNumber, name)
-    if name and name ~= "" then
-        SlotNames[tostring(slotNumber)] = name
-    else
-        SlotNames[tostring(slotNumber)] = nil
-    end
+    if name and name ~= "" then SlotNames[tostring(slotNumber)] = name
+    else SlotNames[tostring(slotNumber)] = nil end
     SaveSlotNames()
 end
 
 local function SaveToSlot(slotNumber)
-    if slotNumber < 1 or slotNumber > 10 then
-        return false
-    end
-    
+    if slotNumber < 1 or slotNumber > 10 then return false end
     local slotData = {
-        AimbotEnabled = getgenv().AimbotEnabled,
-        TeamCheck = getgenv().TeamCheck,
-        WallCheck = getgenv().WallCheck,
-        AimFOV = getgenv().AimFOV,
-        Smoothness = getgenv().Smoothness,
-        ShowFOV = getgenv().ShowFOV,
-        FlyEnabled = getgenv().FlyEnabled,
-        NoclipEnabled = getgenv().NoclipEnabled,
-        FlySpeed = getgenv().FlySpeed,
-        Prediction = getgenv().Prediction,
-        AimLockStrength = getgenv().AimLockStrength,
-        FriendProtection = getgenv().FriendProtection,
-        ProtectedPlayers = ProtectedPlayers,
-        FOVShape = Settings.FOVShape,
-        FOVTransparency = Settings.FOVTransparency,
-        FOVColor = Settings.FOVColor,
-        FOVBorderSize = Settings.FOVBorderSize,
-        RapidFireEnabled = getgenv().RapidFireEnabled,
+        AimbotEnabled = getgenv().AimbotEnabled, TeamCheck = getgenv().TeamCheck,
+        WallCheck = getgenv().WallCheck, AimFOV = getgenv().AimFOV,
+        Smoothness = getgenv().Smoothness, ShowFOV = getgenv().ShowFOV,
+        FlyEnabled = getgenv().FlyEnabled, NoclipEnabled = getgenv().NoclipEnabled,
+        FlySpeed = getgenv().FlySpeed, Prediction = getgenv().Prediction,
+        AimLockStrength = getgenv().AimLockStrength, FriendProtection = getgenv().FriendProtection,
+        ProtectedPlayers = ProtectedPlayers, FOVShape = Settings.FOVShape,
+        FOVTransparency = Settings.FOVTransparency, FOVColor = Settings.FOVColor,
+        FOVBorderSize = Settings.FOVBorderSize, RapidFireEnabled = getgenv().RapidFireEnabled,
         RapidFireDelay = getgenv().RapidFireDelay,
         Keybind_ToggleAimbot = Settings.Keybind_ToggleAimbot,
         Keybind_ToggleFly = Settings.Keybind_ToggleFly,
@@ -277,67 +213,36 @@ local function SaveToSlot(slotNumber)
         Keybind_BringTarget = Settings.Keybind_BringTarget,
         Keybind_ToggleRapidFire = Settings.Keybind_ToggleRapidFire,
         Keybind_ToggleESP = Settings.Keybind_ToggleESP,
-        ESPEnabled = Settings.ESPEnabled,
-        ESPBox = Settings.ESPBox,
-        ESPName = Settings.ESPName,
-        ESPHealth = Settings.ESPHealth,
-        ESPDistance = Settings.ESPDistance,
-        ESPSkeleton = Settings.ESPSkeleton,
-        ESPTeamCheck = Settings.ESPTeamCheck,
-        ESPFriendCheck = Settings.ESPFriendCheck,
-        ESPColorMode = Settings.ESPColorMode,
-        ESPCustomColor = Settings.ESPCustomColor,
-        ESPBoxThickness = Settings.ESPBoxThickness,
-        ESPTextSize = Settings.ESPTextSize,
+        ESPEnabled = Settings.ESPEnabled, ESPBox = Settings.ESPBox,
+        ESPName = Settings.ESPName, ESPHealth = Settings.ESPHealth,
+        ESPDistance = Settings.ESPDistance, ESPSkeleton = Settings.ESPSkeleton,
+        ESPTeamCheck = Settings.ESPTeamCheck, ESPFriendCheck = Settings.ESPFriendCheck,
+        ESPColorMode = Settings.ESPColorMode, ESPCustomColor = Settings.ESPCustomColor,
+        ESPBoxThickness = Settings.ESPBoxThickness, ESPTextSize = Settings.ESPTextSize,
         ESPShowLocal = Settings.ESPShowLocal
     }
-    
-    local success, err = pcall(function()
-        local encoded = HttpService:JSONEncode(slotData)
-        writefile(GetSlotFilename(slotNumber), encoded)
+    local success = pcall(function()
+        writefile(GetSlotFilename(slotNumber), HttpService:JSONEncode(slotData))
     end)
-    
     return success
 end
 
 local function LoadFromSlot(slotNumber)
-    if slotNumber < 1 or slotNumber > 10 then
-        return false
-    end
-    
-    local success, data = pcall(function()
-        return readfile(GetSlotFilename(slotNumber))
-    end)
-    
-    if not success or not data then
-        return false
-    end
-    
+    if slotNumber < 1 or slotNumber > 10 then return false end
+    local success, data = pcall(function() return readfile(GetSlotFilename(slotNumber)) end)
+    if not success or not data then return false end
     local decoded = HttpService:JSONDecode(data)
-    if not decoded then
-        return false
-    end
+    if not decoded then return false end
     
     for key, value in pairs(decoded) do
         if key == "ProtectedPlayers" then
             ProtectedPlayers = value or {}
             ProtectedPlayersSet = {}
-            for _, name in ipairs(ProtectedPlayers) do
-                ProtectedPlayersSet[name] = true
-            end
+            for _, name in ipairs(ProtectedPlayers) do ProtectedPlayersSet[name] = true end
             Settings.ProtectedPlayers = ProtectedPlayers
-        elseif key == "FOVShape" then
-            Settings.FOVShape = value
-        elseif key == "FOVTransparency" then
-            Settings.FOVTransparency = value
-        elseif key == "FOVColor" then
-            Settings.FOVColor = value
-        elseif key == "FOVBorderSize" then
-            Settings.FOVBorderSize = value
-        elseif key == "ESPCustomColor" then
-            Settings.ESPCustomColor = value
-        elseif string.match(key, "Keybind_") then
-            Settings[key] = value
+        elseif key == "ESPCustomColor" then Settings.ESPCustomColor = value
+        elseif key == "FOVColor" then Settings.FOVColor = value
+        elseif string.match(key, "Keybind_") then Settings[key] = value
         else
             getgenv()[key] = value
             Settings[key] = value
@@ -353,32 +258,26 @@ local function LoadFromSlot(slotNumber)
     Keybinds.ToggleESP = StringToKeyCode(Settings.Keybind_ToggleESP)
     
     SaveSettings()
-    UpdateFOVCircle()
-    UpdateKeybindLabels()
-    UpdateRapidFireButton()
-    UpdateESPToggle()
+    if UpdateFOVCircle then UpdateFOVCircle() end
+    if UpdateKeybindLabels then UpdateKeybindLabels() end
+    if UpdateRapidFireButton then UpdateRapidFireButton() end
+    if UpdateESPToggle then UpdateESPToggle() end
+    if UpdateAllTabButtons then UpdateAllTabButtons() end
     return true
 end
 
 local function GetSlotInfo(slotNumber)
-    local success, data = pcall(function()
-        return readfile(GetSlotFilename(slotNumber))
-    end)
-    
+    local success, data = pcall(function() return readfile(GetSlotFilename(slotNumber)) end)
     if success and data then
         local decoded = HttpService:JSONDecode(data)
         if decoded then
             local name = GetSlotName(slotNumber)
-            return name .. " | FOV:" .. (decoded.AimFOV or "?") .. 
+            return name .. " | FOV:" .. (decoded.AimFOV or "?") ..
                    " | Sm:" .. tostring(decoded.Smoothness or 0) ..
-                   " | Pred:" .. tostring((decoded.Prediction or 0) * 100) ..
-                   " | Lock:" .. tostring((decoded.AimLockStrength or 0) * 100) .. "%" ..
-                   " | RF:" .. (decoded.RapidFireEnabled and "ON" or "OFF") ..
                    " | ESP:" .. (decoded.ESPEnabled and "ON" or "OFF")
         end
     end
-    local name = GetSlotName(slotNumber)
-    return name .. " - EMPTY"
+    return GetSlotName(slotNumber) .. " - EMPTY"
 end
 
 -- ============================================
@@ -387,9 +286,7 @@ end
 
 local ProtectedPlayers = Settings.ProtectedPlayers or {}
 local ProtectedPlayersSet = {}
-for _, name in ipairs(ProtectedPlayers) do
-    ProtectedPlayersSet[name] = true
-end
+for _, name in ipairs(ProtectedPlayers) do ProtectedPlayersSet[name] = true end
 
 local PlayerButtons = {}
 local TeleportButtons = {}
@@ -435,85 +332,43 @@ local function IsProtected(player)
 end
 
 -- ============================================
--- TELEPORT FUNCTION
+-- TELEPORT / BRING
 -- ============================================
 
 local function TeleportToPlayer(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then
-        print("❌ Player not found or has no character!")
-        return false
-    end
-    
+    if not targetPlayer or not targetPlayer.Character then print("❌ No character!") return false end
     local character = LocalPlayer.Character
-    if not character then
-        print("❌ You don't have a character!")
-        return false
-    end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then
-        print("❌ HumanoidRootPart not found!")
-        return false
-    end
-    
-    local targetRootPart = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetRootPart then
-        print("❌ Target HumanoidRootPart not found!")
-        return false
-    end
-    
-    local targetPosition = targetRootPart.Position + Vector3.new(0, 2, 0)
-    
-    local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(humanoidRootPart, tweenInfo, {CFrame = CFrame.new(targetPosition)})
+    if not character then return false end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return false end
+    local pos = targetRoot.Position + Vector3.new(0, 2, 0)
+    local tween = TweenService:Create(hrp, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = CFrame.new(pos)})
     tween:Play()
     tween.Completed:Wait()
-    
     print("✅ Teleported to " .. targetPlayer.Name)
     return true
 end
 
--- ============================================
--- BRING PLAYER FUNCTION
--- ============================================
-
 local function BringPlayer(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then
-        print("❌ Player not found or has no character!")
-        return false
-    end
-    
+    if not targetPlayer or not targetPlayer.Character then print("❌ No character!") return false end
     local character = LocalPlayer.Character
-    if not character then
-        print("❌ You don't have a character!")
-        return false
-    end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then
-        print("❌ HumanoidRootPart not found!")
-        return false
-    end
-    
-    local targetRootPart = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetRootPart then
-        print("❌ Target HumanoidRootPart not found!")
-        return false
-    end
-    
-    local bringPosition = humanoidRootPart.Position + Vector3.new(0, 2, 0)
-    
-    local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(targetRootPart, tweenInfo, {CFrame = CFrame.new(bringPosition)})
+    if not character then return false end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return false end
+    local pos = hrp.Position + Vector3.new(0, 2, 0)
+    local tween = TweenService:Create(targetRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = CFrame.new(pos)})
     tween:Play()
     tween.Completed:Wait()
-    
-    print("✅ Brought " .. targetPlayer.Name .. " to you!")
+    print("✅ Brought " .. targetPlayer.Name)
     return true
 end
 
 -- ============================================
--- RAPID FIRE - SIMPLIFIED WORKING VERSION
+-- RAPID FIRE
 -- ============================================
 
 local RapidFireRunning = false
@@ -530,24 +385,17 @@ end
 local function StartRapidFire()
     if RapidFireRunning then return end
     if not getgenv().RapidFireEnabled then return end
-    
     RapidFireRunning = true
     RapidFireLastFireTime = 0
     print("🔫 Rapid Fire ENABLED")
-    
     local fireDelay = getgenv().RapidFireDelay or 0.05
-    
     RapidFireConnection = RunService.Heartbeat:Connect(function()
-        if not getgenv().RapidFireEnabled then
-            StopRapidFire()
-            return
-        end
-        
+        if not getgenv().RapidFireEnabled then StopRapidFire() return end
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            local currentTime = tick()
-            if currentTime - RapidFireLastFireTime >= fireDelay then
+            local t = tick()
+            if t - RapidFireLastFireTime >= fireDelay then
                 FireGun()
-                RapidFireLastFireTime = currentTime
+                RapidFireLastFireTime = t
             end
         end
     end)
@@ -562,54 +410,13 @@ local function StopRapidFire()
     print("🔫 Rapid Fire DISABLED")
 end
 
-local function ToggleRapidFire()
-    getgenv().RapidFireEnabled = not getgenv().RapidFireEnabled
-    Settings.RapidFireEnabled = getgenv().RapidFireEnabled
-    SaveSettings()
-    
-    if getgenv().RapidFireEnabled then
-        StartRapidFire()
-    else
-        StopRapidFire()
-    end
-    
-    UpdateRapidFireButton()
-    return getgenv().RapidFireEnabled
-end
-
-local function UpdateRapidFireButton()
-    if MainFrame then
-        for _, child in pairs(MainFrame:GetDescendants()) do
-            if child:IsA("TextButton") and child.Name == "RapidFireBtn" then
-                child.Text = "🔫 Rapid Fire: " .. (getgenv().RapidFireEnabled and "ON" or "OFF")
-                child.TextColor3 = getgenv().RapidFireEnabled and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
-                child.BorderColor3 = getgenv().RapidFireEnabled and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
-                break
-            end
-        end
-    end
-end
-
 -- ============================================
 -- ESP SYSTEM
 -- ============================================
 
 local ESPDrawings = {}
 local ESPConnection = nil
-local ESPFolder = nil
 
--- Create ESP folder in CoreGui
-local function CreateESPFolder()
-    if ESPFolder then
-        pcall(function() ESPFolder:Destroy() end)
-    end
-    ESPFolder = Instance.new("Folder")
-    ESPFolder.Name = "FRShYHub_ESP"
-    ESPFolder.Parent = CoreGui
-    return ESPFolder
-end
-
--- Clean up ESP for a player
 local function CleanupESP(player)
     if ESPDrawings[player] then
         for _, drawing in pairs(ESPDrawings[player]) do
@@ -619,70 +426,50 @@ local function CleanupESP(player)
     end
 end
 
--- Clean up all ESP
 local function CleanupAllESP()
-    for player, _ in pairs(ESPDrawings) do
-        CleanupESP(player)
-    end
+    for player, _ in pairs(ESPDrawings) do CleanupESP(player) end
     ESPDrawings = {}
 end
 
--- Get ESP color for player
 local function GetESPColor(player)
     if Settings.ESPColorMode == "Health" then
         local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
         if humanoid then
-            local healthPercent = humanoid.Health / humanoid.MaxHealth
-            if healthPercent > 0.75 then
-                return Color3.fromRGB(0, 255, 0)
-            elseif healthPercent > 0.5 then
-                return Color3.fromRGB(255, 255, 0)
-            elseif healthPercent > 0.25 then
-                return Color3.fromRGB(255, 150, 0)
-            else
-                return Color3.fromRGB(255, 0, 0)
-            end
+            local hp = humanoid.Health / humanoid.MaxHealth
+            if hp > 0.75 then return Color3.fromRGB(0, 255, 0)
+            elseif hp > 0.5 then return Color3.fromRGB(255, 255, 0)
+            elseif hp > 0.25 then return Color3.fromRGB(255, 150, 0)
+            else return Color3.fromRGB(255, 0, 0) end
         end
         return Color3.fromRGB(255, 255, 255)
     elseif Settings.ESPColorMode == "Custom" then
         return Color3.fromRGB(Settings.ESPCustomColor[1], Settings.ESPCustomColor[2], Settings.ESPCustomColor[3])
-    else -- Team
+    else
         if player.Team and LocalPlayer.Team then
-            if player.Team == LocalPlayer.Team then
-                return Color3.fromRGB(0, 255, 0) -- Green for teammates
-            else
-                return Color3.fromRGB(255, 0, 0) -- Red for enemies
-            end
+            if player.Team == LocalPlayer.Team then return Color3.fromRGB(0, 255, 0)
+            else return Color3.fromRGB(255, 0, 0) end
         end
         return Color3.fromRGB(255, 255, 255)
     end
 end
 
--- Check if player should have ESP
 local function ShouldESP(player)
     if not Settings.ESPEnabled then return false end
     if player == LocalPlayer and not Settings.ESPShowLocal then return false end
     if not player.Character then return false end
-    
     local humanoid = player.Character:FindFirstChild("Humanoid")
     if not humanoid or humanoid.Health <= 0 then return false end
-    
     if Settings.ESPFriendCheck and IsProtected(player) then return false end
-    
     if Settings.ESPTeamCheck and player.Team and LocalPlayer.Team then
         if player.Team == LocalPlayer.Team then return false end
     end
-    
     return true
 end
 
--- Create ESP drawings for a player
 local function CreateESP(player)
     if ESPDrawings[player] then return end
-    
     local drawings = {}
     
-    -- Box ESP
     if Settings.ESPBox then
         drawings.Box = Drawing.new("Square")
         drawings.Box.Thickness = Settings.ESPBoxThickness
@@ -690,8 +477,6 @@ local function CreateESP(player)
         drawings.Box.Transparency = 1
         drawings.Box.Visible = false
     end
-    
-    -- Name ESP
     if Settings.ESPName then
         drawings.Name = Drawing.new("Text")
         drawings.Name.Size = Settings.ESPTextSize
@@ -700,20 +485,15 @@ local function CreateESP(player)
         drawings.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
         drawings.Name.Visible = false
     end
-    
-    -- Health ESP
     if Settings.ESPHealth then
         drawings.HealthBar = Drawing.new("Line")
         drawings.HealthBar.Thickness = 2
         drawings.HealthBar.Visible = false
-        
         drawings.HealthBarBG = Drawing.new("Line")
         drawings.HealthBarBG.Thickness = 2
         drawings.HealthBarBG.Color = Color3.fromRGB(0, 0, 0)
         drawings.HealthBarBG.Visible = false
     end
-    
-    -- Distance ESP
     if Settings.ESPDistance then
         drawings.Distance = Drawing.new("Text")
         drawings.Distance.Size = Settings.ESPTextSize - 2
@@ -722,284 +502,162 @@ local function CreateESP(player)
         drawings.Distance.OutlineColor = Color3.fromRGB(0, 0, 0)
         drawings.Distance.Visible = false
     end
-    
-    -- Skeleton ESP
     if Settings.ESPSkeleton then
-        -- Head to Upper Torso
-        drawings.SkeletonHead = Drawing.new("Line")
-        drawings.SkeletonHead.Thickness = 1
-        drawings.SkeletonHead.Visible = false
-        
-        -- Upper Torso to Lower Torso
-        drawings.SkeletonTorso = Drawing.new("Line")
-        drawings.SkeletonTorso.Thickness = 1
-        drawings.SkeletonTorso.Visible = false
-        
-        -- Upper Torso to Left Arm
-        drawings.SkeletonLeftArm = Drawing.new("Line")
-        drawings.SkeletonLeftArm.Thickness = 1
-        drawings.SkeletonLeftArm.Visible = false
-        
-        -- Upper Torso to Right Arm
-        drawings.SkeletonRightArm = Drawing.new("Line")
-        drawings.SkeletonRightArm.Thickness = 1
-        drawings.SkeletonRightArm.Visible = false
-        
-        -- Lower Torso to Left Leg
-        drawings.SkeletonLeftLeg = Drawing.new("Line")
-        drawings.SkeletonLeftLeg.Thickness = 1
-        drawings.SkeletonLeftLeg.Visible = false
-        
-        -- Lower Torso to Right Leg
-        drawings.SkeletonRightLeg = Drawing.new("Line")
-        drawings.SkeletonRightLeg.Thickness = 1
-        drawings.SkeletonRightLeg.Visible = false
+        for _, name in ipairs({"SkeletonHead","SkeletonTorso","SkeletonLeftArm","SkeletonRightArm","SkeletonLeftLeg","SkeletonRightLeg"}) do
+            drawings[name] = Drawing.new("Line")
+            drawings[name].Thickness = 1
+            drawings[name].Visible = false
+        end
     end
     
     ESPDrawings[player] = drawings
 end
 
--- Update ESP for a player
 local function UpdateESP(player)
     local drawings = ESPDrawings[player]
     if not drawings then return end
     
     if not ShouldESP(player) then
-        -- Hide all drawings
-        for _, drawing in pairs(drawings) do
-            pcall(function() drawing.Visible = false end)
-        end
+        for _, d in pairs(drawings) do pcall(function() d.Visible = false end) end
         return
     end
     
     local character = player.Character
     if not character then
-        for _, drawing in pairs(drawings) do
-            pcall(function() drawing.Visible = false end)
-        end
+        for _, d in pairs(drawings) do pcall(function() d.Visible = false end) end
         return
     end
     
-    local humanoid = character:FindFirstChild("Humanoid")
     local head = character:FindFirstChild("Head")
-    local upperTorso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
-    local lowerTorso = character:FindFirstChild("LowerTorso") or character:FindFirstChild("Torso")
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
     
-    if not head or not humanoidRootPart then
-        for _, drawing in pairs(drawings) do
-            pcall(function() drawing.Visible = false end)
-        end
+    if not head or not hrp then
+        for _, d in pairs(drawings) do pcall(function() d.Visible = false end) end
         return
     end
     
-    -- Get screen position
-    local headPos, headOnScreen = Camera:WorldToViewportPoint(head.Position)
-    local rootPos, rootOnScreen = Camera:WorldToViewportPoint(humanoidRootPart.Position)
+    local headPos, onScreen1 = Camera:WorldToViewportPoint(head.Position)
+    local rootPos, onScreen2 = Camera:WorldToViewportPoint(hrp.Position)
     
-    if not headOnScreen and not rootOnScreen then
-        for _, drawing in pairs(drawings) do
-            pcall(function() drawing.Visible = false end)
-        end
+    if not onScreen1 and not onScreen2 then
+        for _, d in pairs(drawings) do pcall(function() d.Visible = false end) end
         return
     end
     
     local color = GetESPColor(player)
-    
-    -- Calculate box dimensions
-    local topPos = headPos
-    local bottomPos = rootPos
-    
-    -- Add some padding
-    local boxHeight = math.abs(topPos.Y - bottomPos.Y) * 1.5
+    local boxHeight = math.abs(headPos.Y - rootPos.Y) * 1.5
     local boxWidth = boxHeight * 0.6
+    local boxX = headPos.X - boxWidth / 2
+    local boxY = headPos.Y - boxHeight * 0.15
     
-    local boxX = topPos.X - boxWidth / 2
-    local boxY = topPos.Y - boxHeight * 0.15
-    
-    -- Box ESP
     if drawings.Box then
         drawings.Box.Size = Vector2.new(boxWidth, boxHeight)
         drawings.Box.Position = Vector2.new(boxX, boxY)
         drawings.Box.Color = color
+        drawings.Box.Thickness = Settings.ESPBoxThickness
         drawings.Box.Visible = true
     end
     
-    -- Name ESP
     if drawings.Name then
         drawings.Name.Text = player.Name
-        drawings.Name.Position = Vector2.new(topPos.X, boxY - 18)
+        drawings.Name.Position = Vector2.new(headPos.X, boxY - 18)
         drawings.Name.Color = color
+        drawings.Name.Size = Settings.ESPTextSize
         drawings.Name.Visible = true
     end
     
-    -- Health ESP
     if drawings.HealthBar and humanoid then
-        local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
-        local barHeight = boxHeight
+        local hp = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
         local barX = boxX - 8
-        
         drawings.HealthBarBG.From = Vector2.new(barX, boxY)
-        drawings.HealthBarBG.To = Vector2.new(barX, boxY + barHeight)
+        drawings.HealthBarBG.To = Vector2.new(barX, boxY + boxHeight)
         drawings.HealthBarBG.Visible = true
-        
-        drawings.HealthBar.From = Vector2.new(barX, boxY + barHeight * (1 - healthPercent))
-        drawings.HealthBar.To = Vector2.new(barX, boxY + barHeight)
-        drawings.HealthBar.Color = Color3.fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
+        drawings.HealthBar.From = Vector2.new(barX, boxY + boxHeight * (1 - hp))
+        drawings.HealthBar.To = Vector2.new(barX, boxY + boxHeight)
+        drawings.HealthBar.Color = Color3.fromRGB(255 * (1 - hp), 255 * hp, 0)
         drawings.HealthBar.Visible = true
     end
     
-    -- Distance ESP
-    if drawings.Distance and humanoidRootPart then
-        local distance = (humanoidRootPart.Position - Camera.CFrame.Position).Magnitude
-        drawings.Distance.Text = math.floor(distance) .. " studs"
-        drawings.Distance.Position = Vector2.new(topPos.X, boxY + boxHeight + 2)
+    if drawings.Distance then
+        local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
+        drawings.Distance.Text = math.floor(dist) .. " studs"
+        drawings.Distance.Position = Vector2.new(headPos.X, boxY + boxHeight + 2)
         drawings.Distance.Color = color
+        drawings.Distance.Size = Settings.ESPTextSize - 2
         drawings.Distance.Visible = true
     end
     
-    -- Skeleton ESP
-    if Settings.ESPSkeleton and upperTorso and lowerTorso then
-        local function getPartPos(partName)
+    if Settings.ESPSkeleton then
+        local function getPos(partName)
             local part = character:FindFirstChild(partName)
             if part then
                 local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                if onScreen then
-                    return Vector2.new(pos.X, pos.Y)
-                end
+                if onScreen then return Vector2.new(pos.X, pos.Y) end
             end
             return nil
         end
+        local headS = getPos("Head")
+        local upperTorso = getPos("UpperTorso") or getPos("Torso")
+        local lowerTorso = getPos("LowerTorso") or getPos("Torso")
+        local leftArm = getPos("LeftHand") or getPos("Left Arm")
+        local rightArm = getPos("RightHand") or getPos("Right Arm")
+        local leftLeg = getPos("LeftFoot") or getPos("Left Leg")
+        local rightLeg = getPos("RightFoot") or getPos("Right Leg")
         
-        local headScreen = getPartPos("Head")
-        local upperTorsoScreen = getPartPos("UpperTorso") or getPartPos("Torso")
-        local lowerTorsoScreen = getPartPos("LowerTorso") or getPartPos("Torso")
-        local leftArmScreen = getPartPos("LeftHand") or getPartPos("Left Arm")
-        local rightArmScreen = getPartPos("RightHand") or getPartPos("Right Arm")
-        local leftLegScreen = getPartPos("LeftFoot") or getPartPos("Left Leg")
-        local rightLegScreen = getPartPos("RightFoot") or getPartPos("Right Leg")
-        
-        if drawings.SkeletonHead and headScreen and upperTorsoScreen then
-            drawings.SkeletonHead.From = headScreen
-            drawings.SkeletonHead.To = upperTorsoScreen
-            drawings.SkeletonHead.Color = color
-            drawings.SkeletonHead.Visible = true
-        end
-        
-        if drawings.SkeletonTorso and upperTorsoScreen and lowerTorsoScreen then
-            drawings.SkeletonTorso.From = upperTorsoScreen
-            drawings.SkeletonTorso.To = lowerTorsoScreen
-            drawings.SkeletonTorso.Color = color
-            drawings.SkeletonTorso.Visible = true
-        end
-        
-        if drawings.SkeletonLeftArm and upperTorsoScreen and leftArmScreen then
-            drawings.SkeletonLeftArm.From = upperTorsoScreen
-            drawings.SkeletonLeftArm.To = leftArmScreen
-            drawings.SkeletonLeftArm.Color = color
-            drawings.SkeletonLeftArm.Visible = true
-        end
-        
-        if drawings.SkeletonRightArm and upperTorsoScreen and rightArmScreen then
-            drawings.SkeletonRightArm.From = upperTorsoScreen
-            drawings.SkeletonRightArm.To = rightArmScreen
-            drawings.SkeletonRightArm.Color = color
-            drawings.SkeletonRightArm.Visible = true
-        end
-        
-        if drawings.SkeletonLeftLeg and lowerTorsoScreen and leftLegScreen then
-            drawings.SkeletonLeftLeg.From = lowerTorsoScreen
-            drawings.SkeletonLeftLeg.To = leftLegScreen
-            drawings.SkeletonLeftLeg.Color = color
-            drawings.SkeletonLeftLeg.Visible = true
-        end
-        
-        if drawings.SkeletonRightLeg and lowerTorsoScreen and rightLegScreen then
-            drawings.SkeletonRightLeg.From = lowerTorsoScreen
-            drawings.SkeletonRightLeg.To = rightLegScreen
-            drawings.SkeletonRightLeg.Color = color
-            drawings.SkeletonRightLeg.Visible = true
-        end
-    end
-end
-
--- Update all ESP
-local function UpdateAllESP()
-    if not Settings.ESPEnabled then
-        for player, drawings in pairs(ESPDrawings) do
-            for _, drawing in pairs(drawings) do
-                pcall(function() drawing.Visible = false end)
-            end
-        end
-        return
-    end
-    
-    for _, player in pairs(Players:GetPlayers()) do
-        if ShouldESP(player) then
-            CreateESP(player)
-            UpdateESP(player)
-        else
-            if ESPDrawings[player] then
-                for _, drawing in pairs(ESPDrawings[player]) do
-                    pcall(function() drawing.Visible = false end)
+        local function setLine(name, from, to)
+            if drawings[name] then
+                if from and to then
+                    drawings[name].From = from
+                    drawings[name].To = to
+                    drawings[name].Color = color
+                    drawings[name].Visible = true
+                else
+                    drawings[name].Visible = false
                 end
             end
         end
+        
+        setLine("SkeletonHead", headS, upperTorso)
+        setLine("SkeletonTorso", upperTorso, lowerTorso)
+        setLine("SkeletonLeftArm", upperTorso, leftArm)
+        setLine("SkeletonRightArm", upperTorso, rightArm)
+        setLine("SkeletonLeftLeg", lowerTorso, leftLeg)
+        setLine("SkeletonRightLeg", lowerTorso, rightLeg)
     end
 end
 
--- Start ESP loop
-local function StartESP()
-    if ESPConnection then return end
-    
-    ESPConnection = RunService.RenderStepped:Connect(function()
-        UpdateAllESP()
-    end)
+local function UpdateAllESP()
+    if not Settings.ESPEnabled then
+        for _, drawings in pairs(ESPDrawings) do
+            for _, d in pairs(drawings) do pcall(function() d.Visible = false end) end
+        end
+        return
+    end
+    for _, player in pairs(Players:GetPlayers()) do
+        if ShouldESP(player) then
+            if not ESPDrawings[player] then CreateESP(player) end
+            UpdateESP(player)
+        else
+            if ESPDrawings[player] then
+                for _, d in pairs(ESPDrawings[player]) do pcall(function() d.Visible = false end) end
+            end
+        end
+    end
 end
 
--- Stop ESP
+local function StartESP()
+    if ESPConnection then return end
+    ESPConnection = RunService.RenderStepped:Connect(UpdateAllESP)
+end
+
 local function StopESP()
     if ESPConnection then
         ESPConnection:Disconnect()
         ESPConnection = nil
     end
-    
-    for player, drawings in pairs(ESPDrawings) do
-        for _, drawing in pairs(drawings) do
-            pcall(function() drawing.Visible = false end)
-        end
-    end
-end
-
--- Toggle ESP
-local function ToggleESP()
-    Settings.ESPEnabled = not Settings.ESPEnabled
-    getgenv().ESPEnabled = Settings.ESPEnabled
-    SaveSettings()
-    
-    if Settings.ESPEnabled then
-        StartESP()
-        print("👁️ ESP ENABLED")
-    else
-        StopESP()
-        print("👁️ ESP DISABLED")
-    end
-    
-    UpdateESPToggle()
-    return Settings.ESPEnabled
-end
-
--- Update ESP toggle button
-local function UpdateESPToggle()
-    if MainFrame then
-        for _, child in pairs(MainFrame:GetDescendants()) do
-            if child:IsA("TextButton") and child.Name == "ESPToggleBtn" then
-                child.Text = "👁️ ESP: " .. (Settings.ESPEnabled and "ON" or "OFF")
-                child.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
-                child.BorderColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
-                break
-            end
-        end
+    for _, drawings in pairs(ESPDrawings) do
+        for _, d in pairs(drawings) do pcall(function() d.Visible = false end) end
     end
 end
 
@@ -1012,7 +670,6 @@ local noclipActive = false
 local lockedTarget = nil
 local GuiVisible = false
 local ScriptLoaded = false
-local CurrentTab = "Aimbot"
 local WaitingForKeybind = false
 local WaitingForKeybindAction = nil
 local WaitingForKeybindButton = nil
@@ -1028,7 +685,6 @@ local ProtectedCountLabel = nil
 local SaveStatusLabel = nil
 local SlotButtons = {}
 local RenameTextBox = nil
-local RenameSlotNumber = nil
 local FriendSearchBar = nil
 local TeleportSearchBar = nil
 local BringSearchBar = nil
@@ -1036,49 +692,10 @@ local TabButtons = {}
 local TabContents = {}
 local KeybindButtons = {}
 
--- ============================================
--- STARTUP MESSAGE
--- ============================================
-
-local function ShowStartupMessage()
-    local messageGui = Instance.new("ScreenGui")
-    messageGui.Name = "StartupMessage"
-    messageGui.Parent = CoreGui
-    messageGui.ResetOnSpawn = false
-    
-    local messageFrame = Instance.new("Frame")
-    messageFrame.Size = UDim2.new(0, 350, 0, 40)
-    messageFrame.Position = UDim2.new(0.5, -175, 0, 20)
-    messageFrame.BackgroundColor3 = Color3.fromRGB(0, 50, 0)
-    messageFrame.BackgroundTransparency = 0.1
-    messageFrame.BorderSizePixel = 2
-    messageFrame.BorderColor3 = Color3.fromRGB(0, 255, 0)
-    messageFrame.Parent = messageGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = messageFrame
-    
-    local messageLabel = Instance.new("TextLabel")
-    messageLabel.Size = UDim2.new(1, 0, 1, 0)
-    messageLabel.Position = UDim2.new(0, 0, 0, 0)
-    messageLabel.Text = "✅ FRShYHub V1 Loaded!"
-    messageLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-    messageLabel.BackgroundTransparency = 1
-    messageLabel.Font = Enum.Font.GothamBold
-    messageLabel.TextSize = 18
-    messageLabel.TextScaled = true
-    messageLabel.Parent = messageFrame
-    
-    task.delay(3.5, function()
-        for i = 1, 10 do
-            messageFrame.BackgroundTransparency = 0.1 + (i / 10) * 0.9
-            messageLabel.TextTransparency = (i / 10) * 0.9
-            task.wait(0.05)
-        end
-        messageGui:Destroy()
-    end)
-end
+-- Direct references to toggle buttons (FIX for keybind sync)
+local AimbotTabButtons = {}
+local MiscTabButtons = {}
+local ESPToggleBtnRef = nil
 
 -- ============================================
 -- UPDATE FUNCTIONS
@@ -1093,10 +710,7 @@ end
 
 local function UpdatePlayerList()
     if not PlayerListFrame then return end
-    
-    for _, button in ipairs(PlayerButtons) do
-        pcall(function() button:Destroy() end)
-    end
+    for _, button in ipairs(PlayerButtons) do pcall(function() button:Destroy() end) end
     PlayerButtons = {}
     
     local players = {}
@@ -1107,13 +721,11 @@ local function UpdatePlayerList()
             end
         end
     end
-    
     table.sort(players, function(a, b) return a.Name < b.Name end)
     
     local yPos = 0
     for _, player in ipairs(players) do
         local isProtected = IsProtected(player)
-        
         local Button = Instance.new("TextButton")
         Button.Size = UDim2.new(1, -10, 0, 26)
         Button.Position = UDim2.new(0, 5, 0, yPos)
@@ -1127,40 +739,26 @@ local function UpdatePlayerList()
         Button.BorderSizePixel = 1
         Button.BorderColor3 = isProtected and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(30, 30, 30)
         
-        local playerRef = player
-        
-        Button.MouseEnter:Connect(function()
-            Button.BackgroundColor3 = isProtected and Color3.fromRGB(50, 50, 20) or Color3.fromRGB(25, 25, 25)
-        end)
-        Button.MouseLeave:Connect(function()
-            Button.BackgroundColor3 = isProtected and Color3.fromRGB(30, 30, 10) or Color3.fromRGB(15, 15, 15)
-        end)
-        
         Button.MouseButton1Click:Connect(function()
-            if IsProtected(playerRef) then
-                RemoveProtectedPlayer(playerRef)
-                print("🔓 Unprotected " .. playerRef.Name)
+            if IsProtected(player) then
+                RemoveProtectedPlayer(player)
+                print("🔓 Unprotected " .. player.Name)
             else
-                AddProtectedPlayer(playerRef)
-                print("🛡️ Protected " .. playerRef.Name)
+                AddProtectedPlayer(player)
+                print("🛡️ Protected " .. player.Name)
             end
             UpdatePlayerList()
             UpdateProtectedCount()
         end)
-        
         table.insert(PlayerButtons, Button)
         yPos = yPos + 28
     end
-    
     PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 5)
 end
 
 local function UpdateTeleportList()
     if not TeleportListFrame then return end
-    
-    for _, button in ipairs(TeleportButtons) do
-        pcall(function() button:Destroy() end)
-    end
+    for _, button in ipairs(TeleportButtons) do pcall(function() button:Destroy() end) end
     TeleportButtons = {}
     
     local players = {}
@@ -1171,7 +769,6 @@ local function UpdateTeleportList()
             end
         end
     end
-    
     table.sort(players, function(a, b) return a.Name < b.Name end)
     
     local yPos = 0
@@ -1188,34 +785,16 @@ local function UpdateTeleportList()
         Button.Parent = TeleportListFrame
         Button.BorderSizePixel = 1
         Button.BorderColor3 = Color3.fromRGB(0, 150, 255)
-        
-        local playerRef = player
-        
-        Button.MouseEnter:Connect(function()
-            Button.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-        end)
-        Button.MouseLeave:Connect(function()
-            Button.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
-        end)
-        
-        Button.MouseButton1Click:Connect(function()
-            print("🔄 Teleporting to " .. playerRef.Name .. "...")
-            TeleportToPlayer(playerRef)
-        end)
-        
+        Button.MouseButton1Click:Connect(function() TeleportToPlayer(player) end)
         table.insert(TeleportButtons, Button)
         yPos = yPos + 28
     end
-    
     TeleportListFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 5)
 end
 
 local function UpdateBringList()
     if not BringListFrame then return end
-    
-    for _, button in ipairs(BringButtons) do
-        pcall(function() button:Destroy() end)
-    end
+    for _, button in ipairs(BringButtons) do pcall(function() button:Destroy() end) end
     BringButtons = {}
     
     local players = {}
@@ -1226,7 +805,6 @@ local function UpdateBringList()
             end
         end
     end
-    
     table.sort(players, function(a, b) return a.Name < b.Name end)
     
     local yPos = 0
@@ -1243,46 +821,24 @@ local function UpdateBringList()
         Button.Parent = BringListFrame
         Button.BorderSizePixel = 1
         Button.BorderColor3 = Color3.fromRGB(255, 200, 0)
-        
-        local playerRef = player
-        
-        Button.MouseEnter:Connect(function()
-            Button.BackgroundColor3 = Color3.fromRGB(50, 35, 10)
-        end)
-        Button.MouseLeave:Connect(function()
-            Button.BackgroundColor3 = Color3.fromRGB(30, 20, 5)
-        end)
-        
-        Button.MouseButton1Click:Connect(function()
-            print("🔄 Bringing " .. playerRef.Name .. " to you...")
-            BringPlayer(playerRef)
-        end)
-        
+        Button.MouseButton1Click:Connect(function() BringPlayer(player) end)
         table.insert(BringButtons, Button)
         yPos = yPos + 28
     end
-    
     BringListFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 5)
 end
 
--- ============================================
--- FOV CIRCLE UPDATE
--- ============================================
-
 local function UpdateFOVCircle()
     if not FOVCircle then return end
-    
     local size = getgenv().AimFOV * 2
     FOVCircle.Size = UDim2.new(0, size, 0, size)
     FOVCircle.Position = UDim2.new(0.5, -getgenv().AimFOV, 0.5, -getgenv().AimFOV)
     FOVCircle.Visible = getgenv().ShowFOV
-    
     local color = Color3.fromRGB(Settings.FOVColor[1], Settings.FOVColor[2], Settings.FOVColor[3])
     FOVCircle.BackgroundColor3 = color
     FOVCircle.BackgroundTransparency = Settings.FOVTransparency
     FOVCircle.BorderColor3 = color
     FOVCircle.BorderSizePixel = Settings.FOVBorderSize or 2
-    
     if Settings.FOVShape == "Circle" then
         if not FOVCorner then
             FOVCorner = Instance.new("UICorner")
@@ -1290,77 +846,172 @@ local function UpdateFOVCircle()
         end
         FOVCorner.CornerRadius = UDim.new(1, 0)
     else
-        if FOVCorner then
-            FOVCorner:Destroy()
-            FOVCorner = nil
-        end
+        if FOVCorner then FOVCorner:Destroy() FOVCorner = nil end
     end
 end
 
 -- ============================================
--- KEYBIND UPDATE FUNCTIONS
+-- DIRECT BUTTON UPDATERS (KEY FIX)
 -- ============================================
+
+local function UpdateAllTabButtons()
+    if AimbotTabButtons["Aimbot"] then
+        AimbotTabButtons["Aimbot"].Text = "Aimbot: " .. (getgenv().AimbotEnabled and "ON" or "OFF")
+    end
+    if AimbotTabButtons["Team Check"] then
+        AimbotTabButtons["Team Check"].Text = "Team Check: " .. (getgenv().TeamCheck and "ON" or "OFF")
+    end
+    if AimbotTabButtons["Wall Check"] then
+        AimbotTabButtons["Wall Check"].Text = "Wall Check: " .. (getgenv().WallCheck and "ON" or "OFF")
+    end
+    if MiscTabButtons["Fly"] then
+        MiscTabButtons["Fly"].Text = "✈️ Fly: " .. (getgenv().FlyEnabled and "ON" or "OFF")
+    end
+    if MiscTabButtons["Noclip"] then
+        MiscTabButtons["Noclip"].Text = "🚪 Noclip: " .. (getgenv().NoclipEnabled and "ON" or "OFF")
+    end
+    if MiscTabButtons["RapidFire"] then
+        local on = getgenv().RapidFireEnabled
+        MiscTabButtons["RapidFire"].Text = "🔫 Rapid Fire: " .. (on and "ON" or "OFF")
+        MiscTabButtons["RapidFire"].TextColor3 = on and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
+        MiscTabButtons["RapidFire"].BorderColor3 = on and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
+    end
+    if ESPToggleBtnRef then
+        ESPToggleBtnRef.Text = "👁️ ESP: " .. (Settings.ESPEnabled and "ON" or "OFF")
+        ESPToggleBtnRef.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
+        ESPToggleBtnRef.BorderColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
+    end
+end
 
 local function UpdateKeybindLabels()
     for action, button in pairs(KeybindButtons) do
         if button then
             local key = Keybinds[action]
-            local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("(ESP)", "ESP")
+            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
             button.Text = displayName .. ": " .. (key and KeyCodeToString(key) or "None")
         end
     end
 end
 
-local function StartKeybindWait(action, button)
-    if WaitingForKeybind then return end
-    WaitingForKeybind = true
-    WaitingForKeybindAction = action
-    WaitingForKeybindButton = button
-    button.Text = "Press any key..."
-    button.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
-    print("Press a key to bind for " .. action)
+local function UpdateRapidFireButton()
+    UpdateAllTabButtons()
+end
+
+local function UpdateESPToggle()
+    UpdateAllTabButtons()
 end
 
 -- ============================================
--- KEYBIND HANDLER
+-- TOGGLE FUNCTIONS
+-- ============================================
+
+local function ToggleAimbot()
+    getgenv().AimbotEnabled = not getgenv().AimbotEnabled
+    Settings.AimbotEnabled = getgenv().AimbotEnabled
+    SaveSettings()
+    UpdateAllTabButtons()
+    if SaveStatusLabel then
+        SaveStatusLabel.Text = "🎯 Aimbot " .. (getgenv().AimbotEnabled and "ON" or "OFF")
+        SaveStatusLabel.TextColor3 = getgenv().AimbotEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
+        SaveStatusLabel.Visible = true
+        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+    end
+    print("Aimbot " .. (getgenv().AimbotEnabled and "ENABLED" or "DISABLED"))
+end
+
+local function ToggleFly()
+    getgenv().FlyEnabled = not getgenv().FlyEnabled
+    Settings.FlyEnabled = getgenv().FlyEnabled
+    SaveSettings()
+    UpdateAllTabButtons()
+    if not getgenv().FlyEnabled then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then char.Humanoid.PlatformStand = false end
+    end
+    if SaveStatusLabel then
+        SaveStatusLabel.Text = "✈️ Fly " .. (getgenv().FlyEnabled and "ON" or "OFF")
+        SaveStatusLabel.TextColor3 = getgenv().FlyEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
+        SaveStatusLabel.Visible = true
+        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+    end
+    print("Fly " .. (getgenv().FlyEnabled and "ENABLED" or "DISABLED"))
+end
+
+local function ToggleNoclip()
+    getgenv().NoclipEnabled = not getgenv().NoclipEnabled
+    Settings.NoclipEnabled = getgenv().NoclipEnabled
+    SaveSettings()
+    UpdateAllTabButtons()
+    if SaveStatusLabel then
+        SaveStatusLabel.Text = "🚪 Noclip " .. (getgenv().NoclipEnabled and "ON" or "OFF")
+        SaveStatusLabel.TextColor3 = getgenv().NoclipEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
+        SaveStatusLabel.Visible = true
+        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+    end
+    print("Noclip " .. (getgenv().NoclipEnabled and "ENABLED" or "DISABLED"))
+end
+
+local function ToggleESP()
+    Settings.ESPEnabled = not Settings.ESPEnabled
+    getgenv().ESPEnabled = Settings.ESPEnabled
+    SaveSettings()
+    if Settings.ESPEnabled then StartESP() print("👁️ ESP ENABLED")
+    else StopESP() print("👁️ ESP DISABLED") end
+    UpdateAllTabButtons()
+    if SaveStatusLabel then
+        SaveStatusLabel.Text = "👁️ ESP " .. (Settings.ESPEnabled and "ON" or "OFF")
+        SaveStatusLabel.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 100, 100)
+        SaveStatusLabel.Visible = true
+        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+    end
+end
+
+local function ToggleRapidFire()
+    getgenv().RapidFireEnabled = not getgenv().RapidFireEnabled
+    Settings.RapidFireEnabled = getgenv().RapidFireEnabled
+    SaveSettings()
+    if getgenv().RapidFireEnabled then StartRapidFire() else StopRapidFire() end
+    UpdateAllTabButtons()
+    if SaveStatusLabel then
+        SaveStatusLabel.Text = "🔫 Rapid Fire " .. (getgenv().RapidFireEnabled and "ON" or "OFF")
+        SaveStatusLabel.TextColor3 = getgenv().RapidFireEnabled and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(255, 100, 100)
+        SaveStatusLabel.Visible = true
+        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+    end
+end
+
+-- ============================================
+-- KEYBIND HANDLER (FIXED)
 -- ============================================
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+    -- KEY FIX: Allow keybind capture even when gameProcessed is true
+    if gameProcessed and not WaitingForKeybind then return end
+    if gameProcessed and WaitingForKeybind and input.UserInputType ~= Enum.UserInputType.Keyboard then return end
     
+    -- GUI Toggle
     if input.KeyCode == Enum.KeyCode.RightShift then
         GuiVisible = not GuiVisible
-        if MainFrame then
-            MainFrame.Visible = GuiVisible
-        end
+        if MainFrame then MainFrame.Visible = GuiVisible end
         return
     end
     
+    -- Keybind waiting
     if WaitingForKeybind and input.KeyCode ~= Enum.KeyCode.Unknown then
         local key = input.KeyCode
         local action = WaitingForKeybindAction
         local button = WaitingForKeybindButton
         
         if key == Enum.KeyCode.RightShift then
-            print("❌ Cannot bind the menu key (Right Shift)")
-            if SaveStatusLabel then
-                SaveStatusLabel.Text = "❌ Cannot bind the menu key (Right Shift)"
-                SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-                SaveStatusLabel.Visible = true
-                task.delay(2, function()
-                    if SaveStatusLabel then
-                        SaveStatusLabel.Visible = false
-                    end
-                end)
+            print("❌ Cannot bind Right Shift")
+            if button then
+                local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
+                button.Text = displayName .. ": " .. (Keybinds[action] and KeyCodeToString(Keybinds[action]) or "None")
+                button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
             end
             WaitingForKeybind = false
             WaitingForKeybindAction = nil
             WaitingForKeybindButton = nil
-            if button then
-                local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("(ESP)", "ESP")
-                button.Text = displayName .. ": " .. (Keybinds[action] and KeyCodeToString(Keybinds[action]) or "None")
-                button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-            end
             return
         end
         
@@ -1369,7 +1020,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         SaveSettings()
         
         if button then
-            local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("(ESP)", "ESP")
+            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
             button.Text = displayName .. ": " .. KeyCodeToString(key)
             button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
         end
@@ -1379,11 +1030,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             SaveStatusLabel.Text = "✅ Bound " .. action .. " to " .. KeyCodeToString(key)
             SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
             SaveStatusLabel.Visible = true
-            task.delay(2, function()
-                if SaveStatusLabel then
-                    SaveStatusLabel.Visible = false
-                end
-            end)
+            task.delay(2, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
         end
         
         WaitingForKeybind = false
@@ -1395,110 +1042,24 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     -- Toggle Aimbot
     if Keybinds.ToggleAimbot and input.KeyCode == Keybinds.ToggleAimbot and not KeybindDebounce.ToggleAimbot then
         KeybindDebounce.ToggleAimbot = true
-        local newState = not getgenv().AimbotEnabled
-        getgenv().AimbotEnabled = newState
-        Settings.AimbotEnabled = newState
-        SaveSettings()
-        
-        if MainFrame then
-            for _, child in pairs(MainFrame:GetDescendants()) do
-                if child:IsA("TextButton") and child.Text and child.Text:find("Aimbot:") then
-                    child.Text = "Aimbot: " .. (newState and "ON" or "OFF")
-                    break
-                end
-            end
-        end
-        
-        if SaveStatusLabel then
-            SaveStatusLabel.Text = "🎯 Aimbot " .. (newState and "ON" or "OFF")
-            SaveStatusLabel.TextColor3 = newState and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
-            SaveStatusLabel.Visible = true
-            task.delay(1.5, function()
-                if SaveStatusLabel then
-                    SaveStatusLabel.Visible = false
-                end
-            end)
-        end
-        
-        print("Aimbot " .. (newState and "ENABLED" or "DISABLED"))
-        task.delay(0.2, function()
-            KeybindDebounce.ToggleAimbot = false
-        end)
+        ToggleAimbot()
+        task.delay(0.2, function() KeybindDebounce.ToggleAimbot = false end)
         return
     end
     
     -- Toggle Fly
     if Keybinds.ToggleFly and input.KeyCode == Keybinds.ToggleFly and not KeybindDebounce.ToggleFly then
         KeybindDebounce.ToggleFly = true
-        getgenv().FlyEnabled = not getgenv().FlyEnabled
-        Settings.FlyEnabled = getgenv().FlyEnabled
-        SaveSettings()
-        
-        if MainFrame then
-            for _, child in pairs(MainFrame:GetDescendants()) do
-                if child:IsA("TextButton") and child.Text and child.Text:find("Fly:") then
-                    child.Text = "✈️ Fly: " .. (getgenv().FlyEnabled and "ON" or "OFF")
-                    break
-                end
-            end
-        end
-        
-        if not getgenv().FlyEnabled then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.PlatformStand = false
-            end
-        end
-        
-        if SaveStatusLabel then
-            SaveStatusLabel.Text = "✈️ Fly " .. (getgenv().FlyEnabled and "ON" or "OFF")
-            SaveStatusLabel.TextColor3 = getgenv().FlyEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
-            SaveStatusLabel.Visible = true
-            task.delay(1.5, function()
-                if SaveStatusLabel then
-                    SaveStatusLabel.Visible = false
-                end
-            end)
-        end
-        
-        print("Fly " .. (getgenv().FlyEnabled and "ENABLED" or "DISABLED"))
-        task.delay(0.2, function()
-            KeybindDebounce.ToggleFly = false
-        end)
+        ToggleFly()
+        task.delay(0.2, function() KeybindDebounce.ToggleFly = false end)
         return
     end
     
     -- Toggle Noclip
     if Keybinds.ToggleNoclip and input.KeyCode == Keybinds.ToggleNoclip and not KeybindDebounce.ToggleNoclip then
         KeybindDebounce.ToggleNoclip = true
-        getgenv().NoclipEnabled = not getgenv().NoclipEnabled
-        Settings.NoclipEnabled = getgenv().NoclipEnabled
-        SaveSettings()
-        
-        if MainFrame then
-            for _, child in pairs(MainFrame:GetDescendants()) do
-                if child:IsA("TextButton") and child.Text and child.Text:find("Noclip:") then
-                    child.Text = "🚪 Noclip: " .. (getgenv().NoclipEnabled and "ON" or "OFF")
-                    break
-                end
-            end
-        end
-        
-        if SaveStatusLabel then
-            SaveStatusLabel.Text = "🚪 Noclip " .. (getgenv().NoclipEnabled and "ON" or "OFF")
-            SaveStatusLabel.TextColor3 = getgenv().NoclipEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
-            SaveStatusLabel.Visible = true
-            task.delay(1.5, function()
-                if SaveStatusLabel then
-                    SaveStatusLabel.Visible = false
-                end
-            end)
-        end
-        
-        print("Noclip " .. (getgenv().NoclipEnabled and "ENABLED" or "DISABLED"))
-        task.delay(0.2, function()
-            KeybindDebounce.ToggleNoclip = false
-        end)
+        ToggleNoclip()
+        task.delay(0.2, function() KeybindDebounce.ToggleNoclip = false end)
         return
     end
     
@@ -1506,68 +1067,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if Keybinds.ToggleESP and input.KeyCode == Keybinds.ToggleESP and not KeybindDebounce.ToggleESP then
         KeybindDebounce.ToggleESP = true
         ToggleESP()
-        
-        if SaveStatusLabel then
-            SaveStatusLabel.Text = "👁️ ESP " .. (Settings.ESPEnabled and "ON" or "OFF")
-            SaveStatusLabel.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 100, 100)
-            SaveStatusLabel.Visible = true
-            task.delay(1.5, function()
-                if SaveStatusLabel then
-                    SaveStatusLabel.Visible = false
-                end
-            end)
-        end
-        
-        print("ESP " .. (Settings.ESPEnabled and "ENABLED" or "DISABLED"))
-        task.delay(0.2, function()
-            KeybindDebounce.ToggleESP = false
-        end)
-        return
-    end
-    
-    -- Teleport to target
-    if Keybinds.TeleportToTarget and input.KeyCode == Keybinds.TeleportToTarget and lockedTarget and not KeybindDebounce.TeleportToTarget then
-        KeybindDebounce.TeleportToTarget = true
-        print("🔄 Teleporting to " .. lockedTarget.Name .. "...")
-        
-        if SaveStatusLabel then
-            SaveStatusLabel.Text = "📍 Teleporting to " .. lockedTarget.Name
-            SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
-            SaveStatusLabel.Visible = true
-            task.delay(1.5, function()
-                if SaveStatusLabel then
-                    SaveStatusLabel.Visible = false
-                end
-            end)
-        end
-        
-        TeleportToPlayer(lockedTarget)
-        task.delay(0.3, function()
-            KeybindDebounce.TeleportToTarget = false
-        end)
-        return
-    end
-    
-    -- Bring target
-    if Keybinds.BringTarget and input.KeyCode == Keybinds.BringTarget and lockedTarget and not KeybindDebounce.BringTarget then
-        KeybindDebounce.BringTarget = true
-        print("🔄 Bringing " .. lockedTarget.Name .. " to you...")
-        
-        if SaveStatusLabel then
-            SaveStatusLabel.Text = "🔄 Bringing " .. lockedTarget.Name
-            SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
-            SaveStatusLabel.Visible = true
-            task.delay(1.5, function()
-                if SaveStatusLabel then
-                    SaveStatusLabel.Visible = false
-                end
-            end)
-        end
-        
-        BringPlayer(lockedTarget)
-        task.delay(0.3, function()
-            KeybindDebounce.BringTarget = false
-        end)
+        task.delay(0.2, function() KeybindDebounce.ToggleESP = false end)
         return
     end
     
@@ -1575,115 +1075,40 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if Keybinds.ToggleRapidFire and input.KeyCode == Keybinds.ToggleRapidFire and not KeybindDebounce.ToggleRapidFire then
         KeybindDebounce.ToggleRapidFire = true
         ToggleRapidFire()
-        
-        if SaveStatusLabel then
-            SaveStatusLabel.Text = "🔫 Rapid Fire " .. (getgenv().RapidFireEnabled and "ON" or "OFF")
-            SaveStatusLabel.TextColor3 = getgenv().RapidFireEnabled and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(255, 100, 100)
-            SaveStatusLabel.Visible = true
-            task.delay(1.5, function()
-                if SaveStatusLabel then
-                    SaveStatusLabel.Visible = false
-                end
-            end)
-        end
-        
-        task.delay(0.2, function()
-            KeybindDebounce.ToggleRapidFire = false
-        end)
+        task.delay(0.2, function() KeybindDebounce.ToggleRapidFire = false end)
+        return
+    end
+    
+    -- Teleport to target
+    if Keybinds.TeleportToTarget and input.KeyCode == Keybinds.TeleportToTarget and lockedTarget and not KeybindDebounce.TeleportToTarget then
+        KeybindDebounce.TeleportToTarget = true
+        TeleportToPlayer(lockedTarget)
+        task.delay(0.3, function() KeybindDebounce.TeleportToTarget = false end)
+        return
+    end
+    
+    -- Bring target
+    if Keybinds.BringTarget and input.KeyCode == Keybinds.BringTarget and lockedTarget and not KeybindDebounce.BringTarget then
+        KeybindDebounce.BringTarget = true
+        BringPlayer(lockedTarget)
+        task.delay(0.3, function() KeybindDebounce.BringTarget = false end)
         return
     end
 end)
-
--- ============================================
--- RENAME SLOT FUNCTION
--- ============================================
-
-local function ShowRenamePrompt(slotNumber)
-    if RenameTextBox then
-        RenameTextBox:Destroy()
-        RenameTextBox = nil
-    end
-    
-    RenameSlotNumber = slotNumber
-    
-    local slotContainer = nil
-    for _, slot in ipairs(SlotButtons) do
-        if slot.Number == slotNumber then
-            slotContainer = slot.Container
-            break
-        end
-    end
-    
-    if not slotContainer then return end
-    
-    RenameTextBox = Instance.new("TextBox")
-    RenameTextBox.Size = UDim2.new(1, -10, 0, 25)
-    RenameTextBox.Position = UDim2.new(0, 5, 0.5, -12)
-    RenameTextBox.Text = GetSlotName(slotNumber)
-    RenameTextBox.TextColor3 = Color3.fromRGB(0, 255, 0)
-    RenameTextBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    RenameTextBox.BackgroundTransparency = 0.2
-    RenameTextBox.Font = Enum.Font.GothamBold
-    RenameTextBox.TextSize = 11
-    RenameTextBox.Parent = slotContainer
-    RenameTextBox.ZIndex = 10
-    RenameTextBox.ClearTextOnFocus = false
-    
-    RenameTextBox:CaptureFocus()
-    
-    RenameTextBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed then
-            local newName = RenameTextBox.Text
-            if newName and newName ~= "" then
-                SetSlotName(slotNumber, newName)
-                local newInfo = GetSlotInfo(slotNumber)
-                for _, slot in ipairs(SlotButtons) do
-                    if slot.Number == slotNumber then
-                        slot.InfoLabel.Text = newInfo
-                        break
-                    end
-                end
-                
-                if SaveStatusLabel then
-                    SaveStatusLabel.Text = "✅ Slot " .. slotNumber .. " renamed to '" .. newName .. "'"
-                    SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-                    SaveStatusLabel.Visible = true
-                    task.delay(2, function()
-                        if SaveStatusLabel then
-                            SaveStatusLabel.Visible = false
-                        end
-                    end)
-                end
-                print("📝 Renamed Slot " .. slotNumber .. " to '" .. newName .. "'")
-            end
-        end
-        if RenameTextBox then
-            RenameTextBox:Destroy()
-            RenameTextBox = nil
-        end
-    end)
-end
 
 -- ============================================
 -- GO LEGIT
 -- ============================================
 
 local function GoLegit()
-    print("Going legit... Unloading FRShYHub V1...")
-    
+    print("Going legit...")
     local char = LocalPlayer.Character
-    if char and char:FindFirstChild("Humanoid") then
-        char.Humanoid.PlatformStand = false
-    end
-    
+    if char and char:FindFirstChild("Humanoid") then char.Humanoid.PlatformStand = false end
     if char then
         for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
-            end
+            if part:IsA("BasePart") then part.CanCollide = true end
         end
     end
-    
     getgenv().AimbotEnabled = false
     getgenv().FlyEnabled = false
     getgenv().NoclipEnabled = false
@@ -1691,23 +1116,12 @@ local function GoLegit()
     Settings.ESPEnabled = false
     StopRapidFire()
     StopESP()
-    
     SaveSettings()
-    
-    if ScreenGui then
-        pcall(function() ScreenGui:Destroy() end)
-        ScreenGui = nil
-    end
-    if FOVCircle then
-        pcall(function() FOVCircle:Destroy() end)
-        FOVCircle = nil
-    end
-    
+    if ScreenGui then pcall(function() ScreenGui:Destroy() end) ScreenGui = nil end
+    if FOVCircle then pcall(function() FOVCircle:Destroy() end) FOVCircle = nil end
     CleanupAllESP()
-    
     ScriptLoaded = false
-    print("FRShYHub V1 Unloaded - Settings Saved!")
-    print("Thanks for using!")
+    print("FRShYHub V1 Unloaded!")
 end
 
 -- ============================================
@@ -1715,14 +1129,8 @@ end
 -- ============================================
 
 local function CreateGUI()
-    if ScreenGui then
-        pcall(function() ScreenGui:Destroy() end)
-        ScreenGui = nil
-    end
-    if FOVCircle then
-        pcall(function() FOVCircle:Destroy() end)
-        FOVCircle = nil
-    end
+    if ScreenGui then pcall(function() ScreenGui:Destroy() end) ScreenGui = nil end
+    if FOVCircle then pcall(function() FOVCircle:Destroy() end) FOVCircle = nil end
     
     ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "FRShYHub"
@@ -1743,7 +1151,6 @@ local function CreateGUI()
 
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 0, 50)
-    Title.Position = UDim2.new(0, 0, 0, 0)
     Title.Text = "FRShYHub V1"
     Title.TextColor3 = Color3.fromRGB(0, 255, 0)
     Title.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
@@ -1788,15 +1195,12 @@ local function CreateGUI()
         TabButton.TextXAlignment = Enum.TextXAlignment.Left
         TabButton.Parent = MainFrame
         
-        local tabRef = tabName
-        
         TabButton.MouseButton1Click:Connect(function()
-            CurrentTab = tabRef
-            for idx, btn in ipairs(TabButtons) do
-                if btn.Text == tabRef then
+            for _, btn in ipairs(TabButtons) do
+                if btn.Text == tabName then
                     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    btn.BackgroundColor3 = Color3.fromRGB(tabColors[tabRef].R * 0.3, tabColors[tabRef].G * 0.3, tabColors[tabRef].B * 0.3)
-                    btn.BorderColor3 = tabColors[tabRef]
+                    btn.BackgroundColor3 = Color3.fromRGB(tabColors[tabName].R * 0.3, tabColors[tabName].G * 0.3, tabColors[tabName].B * 0.3)
+                    btn.BorderColor3 = tabColors[tabName]
                 else
                     btn.TextColor3 = Color3.fromRGB(150, 150, 150)
                     btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -1804,14 +1208,12 @@ local function CreateGUI()
                 end
             end
             for contentName, contentFrame in pairs(TabContents) do
-                contentFrame.Visible = (contentName == tabRef)
+                contentFrame.Visible = (contentName == tabName)
             end
         end)
-        
         table.insert(TabButtons, TabButton)
     end
 
-    -- Content Frame
     local ContentFrame = Instance.new("Frame")
     ContentFrame.Size = UDim2.new(0, 320, 0, 545)
     ContentFrame.Position = UDim2.new(0, 165, 0, 75)
@@ -1824,12 +1226,11 @@ local function CreateGUI()
     
     local AimbotTab = Instance.new("Frame")
     AimbotTab.Size = UDim2.new(1, 0, 1, 0)
-    AimbotTab.Position = UDim2.new(0, 0, 0, 0)
     AimbotTab.BackgroundTransparency = 1
     AimbotTab.Parent = ContentFrame
     TabContents["Aimbot"] = AimbotTab
 
-    local function CreateAimbotButton(name, yPos, getter, setter)
+    local function CreateAimbotToggle(name, yPos, getter, setter)
         local Button = Instance.new("TextButton")
         Button.Size = UDim2.new(1, 0, 0, 30)
         Button.Position = UDim2.new(0, 0, 0, yPos)
@@ -1842,13 +1243,6 @@ local function CreateGUI()
         Button.BorderColor3 = Color3.fromRGB(0, 255, 0)
         Button.Parent = AimbotTab
         
-        Button.MouseEnter:Connect(function()
-            Button.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-        end)
-        Button.MouseLeave:Connect(function()
-            Button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-        end)
-
         Button.MouseButton1Click:Connect(function()
             local newState = not getter()
             setter(newState)
@@ -1856,6 +1250,8 @@ local function CreateGUI()
             Settings[name:gsub(" ", "")] = newState
             SaveSettings()
         end)
+        
+        AimbotTabButtons[name] = Button
         return Button
     end
 
@@ -1868,7 +1264,6 @@ local function CreateGUI()
 
         local Label = Instance.new("TextLabel")
         Label.Size = UDim2.new(1, 0, 0, 20)
-        Label.Position = UDim2.new(0, 0, 0, 0)
         Label.Text = name .. ": " .. tostring(getter())
         Label.TextColor3 = Color3.fromRGB(0, 200, 0)
         Label.BackgroundTransparency = 1
@@ -1900,16 +1295,12 @@ local function CreateGUI()
                 Slider.Text = tostring(getter())
             end
         end)
-        return Slider
     end
 
-    CreateAimbotButton("Aimbot", 0, function() return getgenv().AimbotEnabled end, function(v) getgenv().AimbotEnabled = v end)
-    CreateAimbotButton("Team Check", 35, function() return getgenv().TeamCheck end, function(v) getgenv().TeamCheck = v end)
-    CreateAimbotButton("Wall Check", 70, function() return getgenv().WallCheck end, function(v) getgenv().WallCheck = v end)
-    CreateAimbotSlider("FOV", 110, 50, 500, function() return getgenv().AimFOV end, function(v) 
-        getgenv().AimFOV = v
-        UpdateFOVCircle()
-    end)
+    CreateAimbotToggle("Aimbot", 0, function() return getgenv().AimbotEnabled end, function(v) getgenv().AimbotEnabled = v end)
+    CreateAimbotToggle("Team Check", 35, function() return getgenv().TeamCheck end, function(v) getgenv().TeamCheck = v end)
+    CreateAimbotToggle("Wall Check", 70, function() return getgenv().WallCheck end, function(v) getgenv().WallCheck = v end)
+    CreateAimbotSlider("FOV", 110, 50, 500, function() return getgenv().AimFOV end, function(v) getgenv().AimFOV = v UpdateFOVCircle() end)
     CreateAimbotSlider("Smoothness", 155, 0, 100, function() return getgenv().Smoothness end, function(v) getgenv().Smoothness = v end)
     CreateAimbotSlider("Prediction", 200, 0, 50, function() return getgenv().Prediction * 100 end, function(v) getgenv().Prediction = v / 100 end)
     CreateAimbotSlider("Lock Strength", 245, 1, 100, function() return getgenv().AimLockStrength * 100 end, function(v) getgenv().AimLockStrength = v / 100 end)
@@ -1925,17 +1316,7 @@ local function CreateGUI()
     GoLegitBtn.BorderSizePixel = 1
     GoLegitBtn.BorderColor3 = Color3.fromRGB(255, 0, 0)
     GoLegitBtn.Parent = AimbotTab
-
-    GoLegitBtn.MouseEnter:Connect(function()
-        GoLegitBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    end)
-    GoLegitBtn.MouseLeave:Connect(function()
-        GoLegitBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    end)
-
-    GoLegitBtn.MouseButton1Click:Connect(function()
-        GoLegit()
-    end)
+    GoLegitBtn.MouseButton1Click:Connect(GoLegit)
 
     -- ============================================
     -- VISUALS TAB
@@ -1943,7 +1324,6 @@ local function CreateGUI()
     
     local VisualsTab = Instance.new("Frame")
     VisualsTab.Size = UDim2.new(1, 0, 1, 0)
-    VisualsTab.Position = UDim2.new(0, 0, 0, 0)
     VisualsTab.BackgroundTransparency = 1
     VisualsTab.Visible = false
     VisualsTab.Parent = ContentFrame
@@ -1951,7 +1331,6 @@ local function CreateGUI()
 
     local ShowFOVBtn = Instance.new("TextButton")
     ShowFOVBtn.Size = UDim2.new(1, 0, 0, 30)
-    ShowFOVBtn.Position = UDim2.new(0, 0, 0, 0)
     ShowFOVBtn.Text = "Show FOV: " .. (getgenv().ShowFOV and "ON" or "OFF")
     ShowFOVBtn.TextColor3 = Color3.fromRGB(0, 255, 200)
     ShowFOVBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
@@ -1960,7 +1339,6 @@ local function CreateGUI()
     ShowFOVBtn.BorderSizePixel = 1
     ShowFOVBtn.BorderColor3 = Color3.fromRGB(0, 255, 200)
     ShowFOVBtn.Parent = VisualsTab
-
     ShowFOVBtn.MouseButton1Click:Connect(function()
         getgenv().ShowFOV = not getgenv().ShowFOV
         ShowFOVBtn.Text = "Show FOV: " .. (getgenv().ShowFOV and "ON" or "OFF")
@@ -1980,13 +1358,8 @@ local function CreateGUI()
     FOVShapeBtn.BorderSizePixel = 1
     FOVShapeBtn.BorderColor3 = Color3.fromRGB(0, 255, 200)
     FOVShapeBtn.Parent = VisualsTab
-
     FOVShapeBtn.MouseButton1Click:Connect(function()
-        if Settings.FOVShape == "Circle" then
-            Settings.FOVShape = "Square"
-        else
-            Settings.FOVShape = "Circle"
-        end
+        Settings.FOVShape = (Settings.FOVShape == "Circle") and "Square" or "Circle"
         FOVShapeBtn.Text = "FOV Shape: " .. Settings.FOVShape
         SaveSettings()
         UpdateFOVCircle()
@@ -2001,7 +1374,6 @@ local function CreateGUI()
 
     local FOVBorderLabel = Instance.new("TextLabel")
     FOVBorderLabel.Size = UDim2.new(1, 0, 0, 20)
-    FOVBorderLabel.Position = UDim2.new(0, 0, 0, 0)
     FOVBorderLabel.Text = "FOV Border Size: " .. (Settings.FOVBorderSize or 2)
     FOVBorderLabel.TextColor3 = Color3.fromRGB(0, 200, 200)
     FOVBorderLabel.BackgroundTransparency = 1
@@ -2019,7 +1391,6 @@ local function CreateGUI()
     FOVBorderSlider.Font = Enum.Font.Gotham
     FOVBorderSlider.TextSize = 13
     FOVBorderSlider.Parent = FOVBorderContainer
-    
     FOVBorderSlider.FocusLost:Connect(function()
         local val = tonumber(FOVBorderSlider.Text)
         if val then
@@ -2029,12 +1400,10 @@ local function CreateGUI()
             FOVBorderSlider.Text = tostring(val)
             SaveSettings()
             UpdateFOVCircle()
-        else
-            FOVBorderSlider.Text = tostring(Settings.FOVBorderSize or 2)
-        end
+        else FOVBorderSlider.Text = tostring(Settings.FOVBorderSize or 2) end
     end)
 
-    -- FOV Transparency Slider
+    -- FOV Transparency
     local FOVTransContainer = Instance.new("Frame")
     FOVTransContainer.Size = UDim2.new(1, 0, 0, 45)
     FOVTransContainer.Position = UDim2.new(0, 0, 0, 120)
@@ -2043,7 +1412,6 @@ local function CreateGUI()
 
     local FOVTransLabel = Instance.new("TextLabel")
     FOVTransLabel.Size = UDim2.new(1, 0, 0, 20)
-    FOVTransLabel.Position = UDim2.new(0, 0, 0, 0)
     FOVTransLabel.Text = "FOV Transparency: " .. math.floor(Settings.FOVTransparency * 100) .. "%"
     FOVTransLabel.TextColor3 = Color3.fromRGB(0, 200, 200)
     FOVTransLabel.BackgroundTransparency = 1
@@ -2061,7 +1429,6 @@ local function CreateGUI()
     FOVTransSlider.Font = Enum.Font.Gotham
     FOVTransSlider.TextSize = 13
     FOVTransSlider.Parent = FOVTransContainer
-    
     FOVTransSlider.FocusLost:Connect(function()
         local val = tonumber(FOVTransSlider.Text)
         if val then
@@ -2071,12 +1438,10 @@ local function CreateGUI()
             FOVTransSlider.Text = tostring(val)
             SaveSettings()
             UpdateFOVCircle()
-        else
-            FOVTransSlider.Text = tostring(math.floor(Settings.FOVTransparency * 100))
-        end
+        else FOVTransSlider.Text = tostring(math.floor(Settings.FOVTransparency * 100)) end
     end)
 
-    -- FOV Color Input
+    -- FOV Color
     local FOVColorContainer = Instance.new("Frame")
     FOVColorContainer.Size = UDim2.new(1, 0, 0, 45)
     FOVColorContainer.Position = UDim2.new(0, 0, 0, 170)
@@ -2085,7 +1450,6 @@ local function CreateGUI()
 
     local FOVColorLabel = Instance.new("TextLabel")
     FOVColorLabel.Size = UDim2.new(1, 0, 0, 20)
-    FOVColorLabel.Position = UDim2.new(0, 0, 0, 0)
     FOVColorLabel.Text = "FOV Color (R,G,B): " .. Settings.FOVColor[1] .. "," .. Settings.FOVColor[2] .. "," .. Settings.FOVColor[3]
     FOVColorLabel.TextColor3 = Color3.fromRGB(0, 200, 200)
     FOVColorLabel.BackgroundTransparency = 1
@@ -2103,12 +1467,9 @@ local function CreateGUI()
     FOVColorSlider.Font = Enum.Font.Gotham
     FOVColorSlider.TextSize = 13
     FOVColorSlider.Parent = FOVColorContainer
-    
     FOVColorSlider.FocusLost:Connect(function()
         local parts = {}
-        for part in string.gmatch(FOVColorSlider.Text, "[^,]+") do
-            table.insert(parts, tonumber(part))
-        end
+        for part in string.gmatch(FOVColorSlider.Text, "[^,]+") do table.insert(parts, tonumber(part)) end
         if #parts == 3 then
             local r = math.clamp(parts[1] or 0, 0, 255)
             local g = math.clamp(parts[2] or 0, 0, 255)
@@ -2118,9 +1479,7 @@ local function CreateGUI()
             FOVColorSlider.Text = r .. "," .. g .. "," .. b
             SaveSettings()
             UpdateFOVCircle()
-        else
-            FOVColorSlider.Text = Settings.FOVColor[1] .. "," .. Settings.FOVColor[2] .. "," .. Settings.FOVColor[3]
-        end
+        else FOVColorSlider.Text = Settings.FOVColor[1] .. "," .. Settings.FOVColor[2] .. "," .. Settings.FOVColor[3] end
     end)
 
     -- ============================================
@@ -2129,13 +1488,25 @@ local function CreateGUI()
     
     local ESPTab = Instance.new("Frame")
     ESPTab.Size = UDim2.new(1, 0, 1, 0)
-    ESPTab.Position = UDim2.new(0, 0, 0, 0)
     ESPTab.BackgroundTransparency = 1
     ESPTab.Visible = false
     ESPTab.Parent = ContentFrame
     TabContents["ESP"] = ESPTab
 
-    local function CreateESPButton(name, yPos, getter, setter)
+    ESPToggleBtnRef = Instance.new("TextButton")
+    ESPToggleBtnRef.Name = "ESPToggleBtn"
+    ESPToggleBtnRef.Size = UDim2.new(1, 0, 0, 40)
+    ESPToggleBtnRef.Text = "👁️ ESP: " .. (Settings.ESPEnabled and "ON" or "OFF")
+    ESPToggleBtnRef.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
+    ESPToggleBtnRef.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ESPToggleBtnRef.Font = Enum.Font.GothamBold
+    ESPToggleBtnRef.TextSize = 15
+    ESPToggleBtnRef.BorderSizePixel = 2
+    ESPToggleBtnRef.BorderColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
+    ESPToggleBtnRef.Parent = ESPTab
+    ESPToggleBtnRef.MouseButton1Click:Connect(ToggleESP)
+
+    local function CreateESPToggle(name, yPos, getter, setter)
         local Button = Instance.new("TextButton")
         Button.Size = UDim2.new(1, 0, 0, 30)
         Button.Position = UDim2.new(0, 0, 0, yPos)
@@ -2147,92 +1518,28 @@ local function CreateGUI()
         Button.BorderSizePixel = 1
         Button.BorderColor3 = Color3.fromRGB(0, 255, 100)
         Button.Parent = ESPTab
-        
-        Button.MouseEnter:Connect(function()
-            Button.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-        end)
-        Button.MouseLeave:Connect(function()
-            Button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-        end)
-
         Button.MouseButton1Click:Connect(function()
             local newState = not getter()
             setter(newState)
             Button.Text = name .. ": " .. (newState and "ON" or "OFF")
             SaveSettings()
+            CleanupAllESP()
+            if Settings.ESPEnabled then StartESP() end
         end)
-        return Button
     end
 
-    -- ESP Master Toggle
-    local ESPToggleBtn = Instance.new("TextButton")
-    ESPToggleBtn.Name = "ESPToggleBtn"
-    ESPToggleBtn.Size = UDim2.new(1, 0, 0, 40)
-    ESPToggleBtn.Position = UDim2.new(0, 0, 0, 0)
-    ESPToggleBtn.Text = "👁️ ESP: " .. (Settings.ESPEnabled and "ON" or "OFF")
-    ESPToggleBtn.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
-    ESPToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    ESPToggleBtn.Font = Enum.Font.GothamBold
-    ESPToggleBtn.TextSize = 15
-    ESPToggleBtn.BorderSizePixel = 2
-    ESPToggleBtn.BorderColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
-    ESPToggleBtn.Parent = ESPTab
+    CreateESPToggle("Box", 50, function() return Settings.ESPBox end, function(v) Settings.ESPBox = v end)
+    CreateESPToggle("Name", 85, function() return Settings.ESPName end, function(v) Settings.ESPName = v end)
+    CreateESPToggle("Health Bar", 120, function() return Settings.ESPHealth end, function(v) Settings.ESPHealth = v end)
+    CreateESPToggle("Distance", 155, function() return Settings.ESPDistance end, function(v) Settings.ESPDistance = v end)
+    CreateESPToggle("Skeleton", 190, function() return Settings.ESPSkeleton end, function(v) Settings.ESPSkeleton = v end)
+    CreateESPToggle("Team Check", 225, function() return Settings.ESPTeamCheck end, function(v) Settings.ESPTeamCheck = v end)
+    CreateESPToggle("Friend Check", 260, function() return Settings.ESPFriendCheck end, function(v) Settings.ESPFriendCheck = v end)
+    CreateESPToggle("Show Local", 295, function() return Settings.ESPShowLocal end, function(v) Settings.ESPShowLocal = v end)
 
-    ESPToggleBtn.MouseEnter:Connect(function()
-        ESPToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    end)
-    ESPToggleBtn.MouseLeave:Connect(function()
-        ESPToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    end)
-
-    ESPToggleBtn.MouseButton1Click:Connect(function()
-        ToggleESP()
-    end)
-
-    -- ESP Options Header
-    local ESPOptionsHeader = Instance.new("TextLabel")
-    ESPOptionsHeader.Size = UDim2.new(1, 0, 0, 20)
-    ESPOptionsHeader.Position = UDim2.new(0, 0, 0, 50)
-    ESPOptionsHeader.Text = "─── ESP Options ───"
-    ESPOptionsHeader.TextColor3 = Color3.fromRGB(0, 200, 100)
-    ESPOptionsHeader.BackgroundTransparency = 1
-    ESPOptionsHeader.Font = Enum.Font.GothamBold
-    ESPOptionsHeader.TextSize = 12
-    ESPOptionsHeader.Parent = ESPTab
-
-    CreateESPButton("Box", 75, function() return Settings.ESPBox end, function(v) 
-        Settings.ESPBox = v
-        CleanupAllESP()
-        if Settings.ESPEnabled then StartESP() end
-    end)
-    CreateESPButton("Name", 110, function() return Settings.ESPName end, function(v) 
-        Settings.ESPName = v
-        CleanupAllESP()
-        if Settings.ESPEnabled then StartESP() end
-    end)
-    CreateESPButton("Health Bar", 145, function() return Settings.ESPHealth end, function(v) 
-        Settings.ESPHealth = v
-        CleanupAllESP()
-        if Settings.ESPEnabled then StartESP() end
-    end)
-    CreateESPButton("Distance", 180, function() return Settings.ESPDistance end, function(v) 
-        Settings.ESPDistance = v
-        CleanupAllESP()
-        if Settings.ESPEnabled then StartESP() end
-    end)
-    CreateESPButton("Skeleton", 215, function() return Settings.ESPSkeleton end, function(v) 
-        Settings.ESPSkeleton = v
-        CleanupAllESP()
-        if Settings.ESPEnabled then StartESP() end
-    end)
-    CreateESPButton("Team Check", 250, function() return Settings.ESPTeamCheck end, function(v) Settings.ESPTeamCheck = v end)
-    CreateESPButton("Friend Check", 285, function() return Settings.ESPFriendCheck end, function(v) Settings.ESPFriendCheck = v end)
-    CreateESPButton("Show Local", 320, function() return Settings.ESPShowLocal end, function(v) Settings.ESPShowLocal = v end)
-
-    -- Color Mode
     local ColorModeBtn = Instance.new("TextButton")
     ColorModeBtn.Size = UDim2.new(1, 0, 0, 30)
-    ColorModeBtn.Position = UDim2.new(0, 0, 0, 355)
+    ColorModeBtn.Position = UDim2.new(0, 0, 0, 330)
     ColorModeBtn.Text = "Color Mode: " .. Settings.ESPColorMode
     ColorModeBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
     ColorModeBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
@@ -2241,15 +1548,10 @@ local function CreateGUI()
     ColorModeBtn.BorderSizePixel = 1
     ColorModeBtn.BorderColor3 = Color3.fromRGB(0, 255, 100)
     ColorModeBtn.Parent = ESPTab
-
     ColorModeBtn.MouseButton1Click:Connect(function()
-        if Settings.ESPColorMode == "Team" then
-            Settings.ESPColorMode = "Custom"
-        elseif Settings.ESPColorMode == "Custom" then
-            Settings.ESPColorMode = "Health"
-        else
-            Settings.ESPColorMode = "Team"
-        end
+        if Settings.ESPColorMode == "Team" then Settings.ESPColorMode = "Custom"
+        elseif Settings.ESPColorMode == "Custom" then Settings.ESPColorMode = "Health"
+        else Settings.ESPColorMode = "Team" end
         ColorModeBtn.Text = "Color Mode: " .. Settings.ESPColorMode
         SaveSettings()
     end)
@@ -2257,14 +1559,13 @@ local function CreateGUI()
     -- ESP Custom Color
     local ESPColorContainer = Instance.new("Frame")
     ESPColorContainer.Size = UDim2.new(1, 0, 0, 45)
-    ESPColorContainer.Position = UDim2.new(0, 0, 0, 390)
+    ESPColorContainer.Position = UDim2.new(0, 0, 0, 365)
     ESPColorContainer.BackgroundTransparency = 1
     ESPColorContainer.Parent = ESPTab
 
     local ESPColorLabel = Instance.new("TextLabel")
     ESPColorLabel.Size = UDim2.new(1, 0, 0, 20)
-    ESPColorLabel.Position = UDim2.new(0, 0, 0, 0)
-    ESPColorLabel.Text = "Custom Color (R,G,B): " .. Settings.ESPCustomColor[1] .. "," .. Settings.ESPCustomColor[2] .. "," .. Settings.ESPCustomColor[3]
+    ESPColorLabel.Text = "Custom Color: " .. Settings.ESPCustomColor[1] .. "," .. Settings.ESPCustomColor[2] .. "," .. Settings.ESPCustomColor[3]
     ESPColorLabel.TextColor3 = Color3.fromRGB(0, 200, 100)
     ESPColorLabel.BackgroundTransparency = 1
     ESPColorLabel.Font = Enum.Font.Gotham
@@ -2281,107 +1582,55 @@ local function CreateGUI()
     ESPColorInput.Font = Enum.Font.Gotham
     ESPColorInput.TextSize = 13
     ESPColorInput.Parent = ESPColorContainer
-    
     ESPColorInput.FocusLost:Connect(function()
         local parts = {}
-        for part in string.gmatch(ESPColorInput.Text, "[^,]+") do
-            table.insert(parts, tonumber(part))
-        end
+        for part in string.gmatch(ESPColorInput.Text, "[^,]+") do table.insert(parts, tonumber(part)) end
         if #parts == 3 then
             local r = math.clamp(parts[1] or 0, 0, 255)
             local g = math.clamp(parts[2] or 0, 0, 255)
             local b = math.clamp(parts[3] or 0, 0, 255)
             Settings.ESPCustomColor = {r, g, b}
-            ESPColorLabel.Text = "Custom Color (R,G,B): " .. r .. "," .. g .. "," .. b
+            ESPColorLabel.Text = "Custom Color: " .. r .. "," .. g .. "," .. b
             ESPColorInput.Text = r .. "," .. g .. "," .. b
             SaveSettings()
-        else
-            ESPColorInput.Text = Settings.ESPCustomColor[1] .. "," .. Settings.ESPCustomColor[2] .. "," .. Settings.ESPCustomColor[3]
-        end
+        else ESPColorInput.Text = Settings.ESPCustomColor[1] .. "," .. Settings.ESPCustomColor[2] .. "," .. Settings.ESPCustomColor[3] end
     end)
 
-    -- ESP Box Thickness
-    local ESPThicknessContainer = Instance.new("Frame")
-    ESPThicknessContainer.Size = UDim2.new(1, 0, 0, 45)
-    ESPThicknessContainer.Position = UDim2.new(0, 0, 0, 440)
-    ESPThicknessContainer.BackgroundTransparency = 1
-    ESPThicknessContainer.Parent = ESPTab
+    -- Box Thickness
+    local ESPThickContainer = Instance.new("Frame")
+    ESPThickContainer.Size = UDim2.new(1, 0, 0, 45)
+    ESPThickContainer.Position = UDim2.new(0, 0, 0, 415)
+    ESPThickContainer.BackgroundTransparency = 1
+    ESPThickContainer.Parent = ESPTab
 
-    local ESPThicknessLabel = Instance.new("TextLabel")
-    ESPThicknessLabel.Size = UDim2.new(1, 0, 0, 20)
-    ESPThicknessLabel.Position = UDim2.new(0, 0, 0, 0)
-    ESPThicknessLabel.Text = "Box Thickness: " .. Settings.ESPBoxThickness
-    ESPThicknessLabel.TextColor3 = Color3.fromRGB(0, 200, 100)
-    ESPThicknessLabel.BackgroundTransparency = 1
-    ESPThicknessLabel.Font = Enum.Font.Gotham
-    ESPThicknessLabel.TextSize = 13
-    ESPThicknessLabel.TextXAlignment = Enum.TextXAlignment.Left
-    ESPThicknessLabel.Parent = ESPThicknessContainer
+    local ESPThickLabel = Instance.new("TextLabel")
+    ESPThickLabel.Size = UDim2.new(1, 0, 0, 20)
+    ESPThickLabel.Text = "Box Thickness: " .. Settings.ESPBoxThickness
+    ESPThickLabel.TextColor3 = Color3.fromRGB(0, 200, 100)
+    ESPThickLabel.BackgroundTransparency = 1
+    ESPThickLabel.Font = Enum.Font.Gotham
+    ESPThickLabel.TextSize = 13
+    ESPThickLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ESPThickLabel.Parent = ESPThickContainer
 
-    local ESPThicknessInput = Instance.new("TextBox")
-    ESPThicknessInput.Size = UDim2.new(1, 0, 0, 22)
-    ESPThicknessInput.Position = UDim2.new(0, 0, 0, 22)
-    ESPThicknessInput.Text = tostring(Settings.ESPBoxThickness)
-    ESPThicknessInput.TextColor3 = Color3.fromRGB(0, 255, 100)
-    ESPThicknessInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    ESPThicknessInput.Font = Enum.Font.Gotham
-    ESPThicknessInput.TextSize = 13
-    ESPThicknessInput.Parent = ESPThicknessContainer
-    
-    ESPThicknessInput.FocusLost:Connect(function()
-        local val = tonumber(ESPThicknessInput.Text)
+    local ESPThickInput = Instance.new("TextBox")
+    ESPThickInput.Size = UDim2.new(1, 0, 0, 22)
+    ESPThickInput.Position = UDim2.new(0, 0, 0, 22)
+    ESPThickInput.Text = tostring(Settings.ESPBoxThickness)
+    ESPThickInput.TextColor3 = Color3.fromRGB(0, 255, 100)
+    ESPThickInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ESPThickInput.Font = Enum.Font.Gotham
+    ESPThickInput.TextSize = 13
+    ESPThickInput.Parent = ESPThickContainer
+    ESPThickInput.FocusLost:Connect(function()
+        local val = tonumber(ESPThickInput.Text)
         if val then
             val = math.clamp(val, 1, 10)
             Settings.ESPBoxThickness = val
-            ESPThicknessLabel.Text = "Box Thickness: " .. val
-            ESPThicknessInput.Text = tostring(val)
+            ESPThickLabel.Text = "Box Thickness: " .. val
+            ESPThickInput.Text = tostring(val)
             SaveSettings()
-        else
-            ESPThicknessInput.Text = tostring(Settings.ESPBoxThickness)
-        end
-    end)
-
-    -- ESP Text Size
-    local ESPTextSizeContainer = Instance.new("Frame")
-    ESPTextSizeContainer.Size = UDim2.new(1, 0, 0, 45)
-    ESPTextSizeContainer.Position = UDim2.new(0, 0, 0, 490)
-    ESPTextSizeContainer.BackgroundTransparency = 1
-    ESPTextSizeContainer.Parent = ESPTab
-
-    local ESPTextSizeLabel = Instance.new("TextLabel")
-    ESPTextSizeLabel.Size = UDim2.new(1, 0, 0, 20)
-    ESPTextSizeLabel.Position = UDim2.new(0, 0, 0, 0)
-    ESPTextSizeLabel.Text = "Text Size: " .. Settings.ESPTextSize
-    ESPTextSizeLabel.TextColor3 = Color3.fromRGB(0, 200, 100)
-    ESPTextSizeLabel.BackgroundTransparency = 1
-    ESPTextSizeLabel.Font = Enum.Font.Gotham
-    ESPTextSizeLabel.TextSize = 13
-    ESPTextSizeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    ESPTextSizeLabel.Parent = ESPTextSizeContainer
-
-    local ESPTextSizeInput = Instance.new("TextBox")
-    ESPTextSizeInput.Size = UDim2.new(1, 0, 0, 22)
-    ESPTextSizeInput.Position = UDim2.new(0, 0, 0, 22)
-    ESPTextSizeInput.Text = tostring(Settings.ESPTextSize)
-    ESPTextSizeInput.TextColor3 = Color3.fromRGB(0, 255, 100)
-    ESPTextSizeInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    ESPTextSizeInput.Font = Enum.Font.Gotham
-    ESPTextSizeInput.TextSize = 13
-    ESPTextSizeInput.Parent = ESPTextSizeContainer
-    
-    ESPTextSizeInput.FocusLost:Connect(function()
-        local val = tonumber(ESPTextSizeInput.Text)
-        if val then
-            val = math.clamp(val, 8, 24)
-            Settings.ESPTextSize = val
-            ESPTextSizeLabel.Text = "Text Size: " .. val
-            ESPTextSizeInput.Text = tostring(val)
-            SaveSettings()
-            CleanupAllESP()
-            if Settings.ESPEnabled then StartESP() end
-        else
-            ESPTextSizeInput.Text = tostring(Settings.ESPTextSize)
-        end
+        else ESPThickInput.Text = tostring(Settings.ESPBoxThickness) end
     end)
 
     -- ============================================
@@ -2390,7 +1639,6 @@ local function CreateGUI()
     
     local KeybindsTab = Instance.new("Frame")
     KeybindsTab.Size = UDim2.new(1, 0, 1, 0)
-    KeybindsTab.Position = UDim2.new(0, 0, 0, 0)
     KeybindsTab.BackgroundTransparency = 1
     KeybindsTab.Visible = false
     KeybindsTab.Parent = ContentFrame
@@ -2398,25 +1646,16 @@ local function CreateGUI()
 
     local KeybindInfo = Instance.new("TextLabel")
     KeybindInfo.Size = UDim2.new(1, 0, 0, 30)
-    KeybindInfo.Position = UDim2.new(0, 0, 0, 0)
-    KeybindInfo.Text = "Click a button to rebind | Keybinds work even when menu is closed"
+    KeybindInfo.Text = "Click a button to rebind | Keybinds work when menu is closed"
     KeybindInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
     KeybindInfo.BackgroundTransparency = 1
     KeybindInfo.Font = Enum.Font.Gotham
     KeybindInfo.TextSize = 11
     KeybindInfo.Parent = KeybindsTab
 
-    local keybindActions = {
-        "ToggleAimbot",
-        "ToggleFly",
-        "ToggleNoclip",
-        "ToggleESP",
-        "TeleportToTarget",
-        "BringTarget",
-        "ToggleRapidFire"
-    }
-
+    local keybindActions = {"ToggleAimbot","ToggleFly","ToggleNoclip","ToggleESP","TeleportToTarget","BringTarget","ToggleRapidFire"}
     local keyY = 35
+    
     for _, action in ipairs(keybindActions) do
         local Container = Instance.new("Frame")
         Container.Size = UDim2.new(1, 0, 0, 35)
@@ -2429,7 +1668,7 @@ local function CreateGUI()
         local Label = Instance.new("TextLabel")
         Label.Size = UDim2.new(0.4, 0, 1, 0)
         Label.Position = UDim2.new(0, 5, 0, 0)
-        local displayName = action:gsub("Toggle", ""):gsub("(Aimbot)", "Aimbot"):gsub("(Fly)", "Fly"):gsub("(Noclip)", "Noclip"):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("(ESP)", "ESP")
+        local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
         Label.Text = displayName
         Label.TextColor3 = Color3.fromRGB(200, 200, 200)
         Label.BackgroundTransparency = 1
@@ -2450,11 +1689,14 @@ local function CreateGUI()
         Button.BorderColor3 = Color3.fromRGB(255, 200, 50)
         Button.Parent = Container
         
-        local actionRef = action
-        local buttonRef = Button
-        
         Button.MouseButton1Click:Connect(function()
-            StartKeybindWait(actionRef, buttonRef)
+            if WaitingForKeybind then return end
+            WaitingForKeybind = true
+            WaitingForKeybindAction = action
+            WaitingForKeybindButton = Button
+            Button.Text = "Press any key..."
+            Button.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+            print("Press a key to bind for " .. action)
         end)
         
         KeybindButtons[action] = Button
@@ -2464,7 +1706,7 @@ local function CreateGUI()
     local ResetKeybindsBtn = Instance.new("TextButton")
     ResetKeybindsBtn.Size = UDim2.new(1, 0, 0, 35)
     ResetKeybindsBtn.Position = UDim2.new(0, 0, 0, keyY + 10)
-    ResetKeybindsBtn.Text = "🔄 Reset All Keybinds to None"
+    ResetKeybindsBtn.Text = "🔄 Reset All Keybinds"
     ResetKeybindsBtn.TextColor3 = Color3.fromRGB(255, 200, 50)
     ResetKeybindsBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 5)
     ResetKeybindsBtn.Font = Enum.Font.GothamBold
@@ -2472,37 +1714,14 @@ local function CreateGUI()
     ResetKeybindsBtn.BorderSizePixel = 1
     ResetKeybindsBtn.BorderColor3 = Color3.fromRGB(255, 200, 50)
     ResetKeybindsBtn.Parent = KeybindsTab
-
     ResetKeybindsBtn.MouseButton1Click:Connect(function()
-        Keybinds.ToggleAimbot = nil
-        Keybinds.ToggleFly = nil
-        Keybinds.ToggleNoclip = nil
-        Keybinds.TeleportToTarget = nil
-        Keybinds.BringTarget = nil
-        Keybinds.ToggleRapidFire = nil
-        Keybinds.ToggleESP = nil
-        
-        Settings.Keybind_ToggleAimbot = "None"
-        Settings.Keybind_ToggleFly = "None"
-        Settings.Keybind_ToggleNoclip = "None"
-        Settings.Keybind_TeleportToTarget = "None"
-        Settings.Keybind_BringTarget = "None"
-        Settings.Keybind_ToggleRapidFire = "None"
-        Settings.Keybind_ToggleESP = "None"
+        for k, _ in pairs(Keybinds) do
+            Keybinds[k] = nil
+            Settings["Keybind_" .. k] = "None"
+        end
         SaveSettings()
         UpdateKeybindLabels()
-        
-        if SaveStatusLabel then
-            SaveStatusLabel.Text = "✅ All keybinds reset to None"
-            SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-            SaveStatusLabel.Visible = true
-            task.delay(2, function()
-                if SaveStatusLabel then
-                    SaveStatusLabel.Visible = false
-                end
-            end)
-        end
-        print("✅ All keybinds reset to None")
+        print("✅ All keybinds reset")
     end)
 
     -- ============================================
@@ -2511,7 +1730,6 @@ local function CreateGUI()
     
     local FriendTab = Instance.new("Frame")
     FriendTab.Size = UDim2.new(1, 0, 1, 0)
-    FriendTab.Position = UDim2.new(0, 0, 0, 0)
     FriendTab.BackgroundTransparency = 1
     FriendTab.Visible = false
     FriendTab.Parent = ContentFrame
@@ -2519,7 +1737,6 @@ local function CreateGUI()
 
     local FriendProtectBtn = Instance.new("TextButton")
     FriendProtectBtn.Size = UDim2.new(1, 0, 0, 30)
-    FriendProtectBtn.Position = UDim2.new(0, 0, 0, 0)
     FriendProtectBtn.Text = "🛡️ Protect Friends: " .. (getgenv().FriendProtection and "ON" or "OFF")
     FriendProtectBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
     FriendProtectBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
@@ -2528,7 +1745,6 @@ local function CreateGUI()
     FriendProtectBtn.BorderSizePixel = 1
     FriendProtectBtn.BorderColor3 = Color3.fromRGB(255, 215, 0)
     FriendProtectBtn.Parent = FriendTab
-
     FriendProtectBtn.MouseButton1Click:Connect(function()
         getgenv().FriendProtection = not getgenv().FriendProtection
         FriendProtectBtn.Text = "🛡️ Protect Friends: " .. (getgenv().FriendProtection and "ON" or "OFF")
@@ -2552,7 +1768,6 @@ local function CreateGUI()
     FriendSearchBar.Size = UDim2.new(1, 0, 0, 25)
     FriendSearchBar.Position = UDim2.new(0, 0, 0, 58)
     FriendSearchBar.PlaceholderText = "🔍 Search friends..."
-    FriendSearchBar.Text = ""
     FriendSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
     FriendSearchBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     FriendSearchBar.Font = Enum.Font.Gotham
@@ -2560,7 +1775,6 @@ local function CreateGUI()
     FriendSearchBar.BorderSizePixel = 1
     FriendSearchBar.BorderColor3 = Color3.fromRGB(255, 215, 0)
     FriendSearchBar.Parent = FriendTab
-    
     FriendSearchBar:GetPropertyChangedSignal("Text"):Connect(function()
         FriendSearchQuery = FriendSearchBar.Text
         UpdatePlayerList()
@@ -2582,7 +1796,6 @@ local function CreateGUI()
     
     local SlotsTab = Instance.new("Frame")
     SlotsTab.Size = UDim2.new(1, 0, 1, 0)
-    SlotsTab.Position = UDim2.new(0, 0, 0, 0)
     SlotsTab.BackgroundTransparency = 1
     SlotsTab.Visible = false
     SlotsTab.Parent = ContentFrame
@@ -2644,58 +1857,33 @@ local function CreateGUI()
         loadBtn.BorderColor3 = Color3.fromRGB(0, 200, 255)
         loadBtn.Parent = Container
         
-        local slotNumber = i
-        
         saveBtn.MouseButton1Click:Connect(function()
-            if SaveToSlot(slotNumber) then
-                infoLabel.Text = GetSlotInfo(slotNumber)
-                SaveStatusLabel.Text = "✅ Saved to Slot " .. slotNumber
-                SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-                SaveStatusLabel.Visible = true
-                task.delay(2, function()
-                    if SaveStatusLabel then
-                        SaveStatusLabel.Visible = false
-                    end
-                end)
-            else
-                SaveStatusLabel.Text = "❌ Failed to save Slot " .. slotNumber
-                SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-                SaveStatusLabel.Visible = true
-                task.delay(2, function()
-                    if SaveStatusLabel then
-                        SaveStatusLabel.Visible = false
-                    end
-                end)
+            if SaveToSlot(i) then
+                infoLabel.Text = GetSlotInfo(i)
+                if SaveStatusLabel then
+                    SaveStatusLabel.Text = "✅ Saved Slot " .. i
+                    SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                    SaveStatusLabel.Visible = true
+                    task.delay(2, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+                end
             end
         end)
         
         loadBtn.MouseButton1Click:Connect(function()
-            if LoadFromSlot(slotNumber) then
-                infoLabel.Text = GetSlotInfo(slotNumber)
-                SaveStatusLabel.Text = "✅ Loaded Slot " .. slotNumber
-                SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-                SaveStatusLabel.Visible = true
-                task.delay(2, function()
-                    if SaveStatusLabel then
-                        SaveStatusLabel.Visible = false
-                    end
-                end)
+            if LoadFromSlot(i) then
+                infoLabel.Text = GetSlotInfo(i)
+                if SaveStatusLabel then
+                    SaveStatusLabel.Text = "✅ Loaded Slot " .. i
+                    SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                    SaveStatusLabel.Visible = true
+                    task.delay(2, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+                end
+                UpdateAllTabButtons()
                 UpdatePlayerList()
                 UpdateProtectedCount()
                 UpdateTeleportList()
                 UpdateBringList()
                 UpdateFOVCircle()
-                UpdateRapidFireButton()
-                UpdateESPToggle()
-            else
-                SaveStatusLabel.Text = "❌ Slot " .. slotNumber .. " is empty"
-                SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-                SaveStatusLabel.Visible = true
-                task.delay(2, function()
-                    if SaveStatusLabel then
-                        SaveStatusLabel.Visible = false
-                    end
-                end)
             end
         end)
         
@@ -2703,23 +1891,38 @@ local function CreateGUI()
         nameLabel.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 if isDoubleClick then
-                    ShowRenamePrompt(slotNumber)
+                    -- Rename prompt
+                    if RenameTextBox then RenameTextBox:Destroy() end
+                    RenameTextBox = Instance.new("TextBox")
+                    RenameTextBox.Size = UDim2.new(1, -10, 0, 25)
+                    RenameTextBox.Position = UDim2.new(0, 5, 0.5, -12)
+                    RenameTextBox.Text = GetSlotName(i)
+                    RenameTextBox.TextColor3 = Color3.fromRGB(0, 255, 0)
+                    RenameTextBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                    RenameTextBox.BackgroundTransparency = 0.2
+                    RenameTextBox.Font = Enum.Font.GothamBold
+                    RenameTextBox.TextSize = 11
+                    RenameTextBox.Parent = Container
+                    RenameTextBox.ZIndex = 10
+                    RenameTextBox.ClearTextOnFocus = false
+                    RenameTextBox:CaptureFocus()
+                    RenameTextBox.FocusLost:Connect(function(enterPressed)
+                        if enterPressed and RenameTextBox.Text ~= "" then
+                            SetSlotName(i, RenameTextBox.Text)
+                            nameLabel.Text = RenameTextBox.Text
+                            infoLabel.Text = GetSlotInfo(i)
+                        end
+                        if RenameTextBox then RenameTextBox:Destroy() RenameTextBox = nil end
+                    end)
                     isDoubleClick = false
                 else
                     isDoubleClick = true
-                    task.delay(0.3, function()
-                        isDoubleClick = false
-                    end)
+                    task.delay(0.3, function() isDoubleClick = false end)
                 end
             end
         end)
         
-        table.insert(SlotButtons, {
-            Number = i,
-            Container = Container,
-            InfoLabel = infoLabel
-        })
-        
+        table.insert(SlotButtons, {Number = i, Container = Container, InfoLabel = infoLabel})
         slotY = slotY + 50
     end
 
@@ -2729,7 +1932,6 @@ local function CreateGUI()
     
     local MiscTab = Instance.new("Frame")
     MiscTab.Size = UDim2.new(1, 0, 1, 0)
-    MiscTab.Position = UDim2.new(0, 0, 0, 0)
     MiscTab.BackgroundTransparency = 1
     MiscTab.Visible = false
     MiscTab.Parent = ContentFrame
@@ -2738,7 +1940,6 @@ local function CreateGUI()
     -- Fly Button
     local FlyBtn = Instance.new("TextButton")
     FlyBtn.Size = UDim2.new(1, 0, 0, 30)
-    FlyBtn.Position = UDim2.new(0, 0, 0, 0)
     FlyBtn.Text = "✈️ Fly: " .. (getgenv().FlyEnabled and "ON" or "OFF")
     FlyBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
     FlyBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
@@ -2747,19 +1948,8 @@ local function CreateGUI()
     FlyBtn.BorderSizePixel = 1
     FlyBtn.BorderColor3 = Color3.fromRGB(0, 255, 150)
     FlyBtn.Parent = MiscTab
-
-    FlyBtn.MouseButton1Click:Connect(function()
-        getgenv().FlyEnabled = not getgenv().FlyEnabled
-        FlyBtn.Text = "✈️ Fly: " .. (getgenv().FlyEnabled and "ON" or "OFF")
-        Settings.FlyEnabled = getgenv().FlyEnabled
-        SaveSettings()
-        if not getgenv().FlyEnabled then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.PlatformStand = false
-            end
-        end
-    end)
+    FlyBtn.MouseButton1Click:Connect(ToggleFly)
+    MiscTabButtons["Fly"] = FlyBtn
 
     -- Noclip Button
     local NoclipBtn = Instance.new("TextButton")
@@ -2773,13 +1963,8 @@ local function CreateGUI()
     NoclipBtn.BorderSizePixel = 1
     NoclipBtn.BorderColor3 = Color3.fromRGB(0, 255, 150)
     NoclipBtn.Parent = MiscTab
-
-    NoclipBtn.MouseButton1Click:Connect(function()
-        getgenv().NoclipEnabled = not getgenv().NoclipEnabled
-        NoclipBtn.Text = "🚪 Noclip: " .. (getgenv().NoclipEnabled and "ON" or "OFF")
-        Settings.NoclipEnabled = getgenv().NoclipEnabled
-        SaveSettings()
-    end)
+    NoclipBtn.MouseButton1Click:Connect(ToggleNoclip)
+    MiscTabButtons["Noclip"] = NoclipBtn
 
     -- Fly Speed Slider
     local SpeedContainer = Instance.new("Frame")
@@ -2790,7 +1975,6 @@ local function CreateGUI()
 
     local SpeedLabel = Instance.new("TextLabel")
     SpeedLabel.Size = UDim2.new(1, 0, 0, 20)
-    SpeedLabel.Position = UDim2.new(0, 0, 0, 0)
     SpeedLabel.Text = "Fly Speed: " .. tostring(getgenv().FlySpeed)
     SpeedLabel.TextColor3 = Color3.fromRGB(0, 200, 150)
     SpeedLabel.BackgroundTransparency = 1
@@ -2808,7 +1992,6 @@ local function CreateGUI()
     SpeedSlider.Font = Enum.Font.Gotham
     SpeedSlider.TextSize = 13
     SpeedSlider.Parent = SpeedContainer
-    
     SpeedSlider.FocusLost:Connect(function()
         local val = tonumber(SpeedSlider.Text)
         if val then
@@ -2818,12 +2001,10 @@ local function CreateGUI()
             SpeedSlider.Text = tostring(val)
             Settings.FlySpeed = val
             SaveSettings()
-        else
-            SpeedSlider.Text = tostring(getgenv().FlySpeed)
-        end
+        else SpeedSlider.Text = tostring(getgenv().FlySpeed) end
     end)
 
-    -- Rapid Fire Section - FIXED BUTTON
+    -- Rapid Fire Button
     local RapidFireBtn = Instance.new("TextButton")
     RapidFireBtn.Name = "RapidFireBtn"
     RapidFireBtn.Size = UDim2.new(1, 0, 0, 30)
@@ -2836,33 +2017,8 @@ local function CreateGUI()
     RapidFireBtn.BorderSizePixel = 2
     RapidFireBtn.BorderColor3 = Color3.fromRGB(0, 255, 150)
     RapidFireBtn.Parent = MiscTab
-
-    RapidFireBtn.MouseEnter:Connect(function()
-        RapidFireBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    end)
-    RapidFireBtn.MouseLeave:Connect(function()
-        RapidFireBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    end)
-
-    RapidFireBtn.MouseButton1Click:Connect(function()
-        getgenv().RapidFireEnabled = not getgenv().RapidFireEnabled
-        Settings.RapidFireEnabled = getgenv().RapidFireEnabled
-        SaveSettings()
-        
-        if getgenv().RapidFireEnabled then
-            RapidFireBtn.Text = "🔫 Rapid Fire: ON"
-            RapidFireBtn.TextColor3 = Color3.fromRGB(255, 100, 0)
-            RapidFireBtn.BorderColor3 = Color3.fromRGB(255, 100, 0)
-            StartRapidFire()
-            print("🔫 Rapid Fire ENABLED")
-        else
-            RapidFireBtn.Text = "🔫 Rapid Fire: OFF"
-            RapidFireBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
-            RapidFireBtn.BorderColor3 = Color3.fromRGB(0, 255, 150)
-            StopRapidFire()
-            print("🔫 Rapid Fire DISABLED")
-        end
-    end)
+    RapidFireBtn.MouseButton1Click:Connect(ToggleRapidFire)
+    MiscTabButtons["RapidFire"] = RapidFireBtn
 
     -- Rapid Fire Delay Slider
     local RFDelayContainer = Instance.new("Frame")
@@ -2873,7 +2029,6 @@ local function CreateGUI()
 
     local RFDelayLabel = Instance.new("TextLabel")
     RFDelayLabel.Size = UDim2.new(1, 0, 0, 20)
-    RFDelayLabel.Position = UDim2.new(0, 0, 0, 0)
     RFDelayLabel.Text = "Rapid Fire Delay (ms): " .. math.floor((getgenv().RapidFireDelay or 0.05) * 1000)
     RFDelayLabel.TextColor3 = Color3.fromRGB(255, 150, 50)
     RFDelayLabel.BackgroundTransparency = 1
@@ -2891,7 +2046,6 @@ local function CreateGUI()
     RFDelaySlider.Font = Enum.Font.Gotham
     RFDelaySlider.TextSize = 13
     RFDelaySlider.Parent = RFDelayContainer
-    
     RFDelaySlider.FocusLost:Connect(function()
         local val = tonumber(RFDelaySlider.Text)
         if val then
@@ -2901,15 +2055,8 @@ local function CreateGUI()
             RFDelaySlider.Text = tostring(val)
             Settings.RapidFireDelay = getgenv().RapidFireDelay
             SaveSettings()
-            
-            if getgenv().RapidFireEnabled then
-                StopRapidFire()
-                task.wait(0.1)
-                StartRapidFire()
-            end
-        else
-            RFDelaySlider.Text = tostring(math.floor((getgenv().RapidFireDelay or 0.05) * 1000))
-        end
+            if getgenv().RapidFireEnabled then StopRapidFire() task.wait(0.1) StartRapidFire() end
+        else RFDelaySlider.Text = tostring(math.floor((getgenv().RapidFireDelay or 0.05) * 1000)) end
     end)
 
     -- Teleport Section
@@ -2928,7 +2075,6 @@ local function CreateGUI()
     TeleportSearchBar.Size = UDim2.new(1, 0, 0, 25)
     TeleportSearchBar.Position = UDim2.new(0, 0, 0, 227)
     TeleportSearchBar.PlaceholderText = "🔍 Search players to teleport..."
-    TeleportSearchBar.Text = ""
     TeleportSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
     TeleportSearchBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     TeleportSearchBar.Font = Enum.Font.Gotham
@@ -2936,7 +2082,6 @@ local function CreateGUI()
     TeleportSearchBar.BorderSizePixel = 1
     TeleportSearchBar.BorderColor3 = Color3.fromRGB(0, 150, 255)
     TeleportSearchBar.Parent = MiscTab
-    
     TeleportSearchBar:GetPropertyChangedSignal("Text"):Connect(function()
         TeleportSearchQuery = TeleportSearchBar.Text
         UpdateTeleportList()
@@ -2968,7 +2113,6 @@ local function CreateGUI()
     BringSearchBar.Size = UDim2.new(1, 0, 0, 25)
     BringSearchBar.Position = UDim2.new(0, 0, 0, 364)
     BringSearchBar.PlaceholderText = "🔍 Search players to bring..."
-    BringSearchBar.Text = ""
     BringSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
     BringSearchBar.BackgroundColor3 = Color3.fromRGB(30, 20, 5)
     BringSearchBar.Font = Enum.Font.Gotham
@@ -2976,7 +2120,6 @@ local function CreateGUI()
     BringSearchBar.BorderSizePixel = 1
     BringSearchBar.BorderColor3 = Color3.fromRGB(255, 200, 0)
     BringSearchBar.Parent = MiscTab
-    
     BringSearchBar:GetPropertyChangedSignal("Text"):Connect(function()
         BringSearchQuery = BringSearchBar.Text
         UpdateBringList()
@@ -2992,10 +2135,7 @@ local function CreateGUI()
     BringListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     BringListFrame.ScrollBarThickness = 6
 
-    -- ============================================
-    -- SAVE STATUS
-    -- ============================================
-
+    -- Save Status
     SaveStatusLabel = Instance.new("TextLabel")
     SaveStatusLabel.Size = UDim2.new(1, 0, 0, 20)
     SaveStatusLabel.Position = UDim2.new(0, 0, 0, 700)
@@ -3004,11 +2144,10 @@ local function CreateGUI()
     SaveStatusLabel.BackgroundTransparency = 1
     SaveStatusLabel.Font = Enum.Font.Gotham
     SaveStatusLabel.TextSize = 11
-    SaveStatusLabel.TextXAlignment = Enum.TextXAlignment.Center
     SaveStatusLabel.Visible = false
     SaveStatusLabel.Parent = MainFrame
 
-    -- FOV CIRCLE
+    -- FOV Circle
     FOVCircle = Instance.new("Frame")
     FOVCircle.Size = UDim2.new(0, getgenv().AimFOV * 2, 0, getgenv().AimFOV * 2)
     FOVCircle.Position = UDim2.new(0.5, -getgenv().AimFOV, 0.5, -getgenv().AimFOV)
@@ -3027,27 +2166,13 @@ local function CreateGUI()
     end
 
     UpdateKeybindLabels()
-    UpdateRapidFireButton()
-    UpdateESPToggle()
+    UpdateAllTabButtons()
 
     task.wait(0.5)
     UpdatePlayerList()
     UpdateProtectedCount()
     UpdateTeleportList()
     UpdateBringList()
-    
-    Players.PlayerAdded:Connect(function()
-        task.wait(0.5)
-        UpdateTeleportList()
-        UpdateBringList()
-        UpdatePlayerList()
-    end)
-    Players.PlayerRemoving:Connect(function()
-        task.wait(0.5)
-        UpdateTeleportList()
-        UpdateBringList()
-        UpdatePlayerList()
-    end)
     
     return true
 end
@@ -3058,20 +2183,14 @@ end
 
 Players.PlayerAdded:Connect(function()
     task.wait(0.5)
-    UpdatePlayerList()
-    UpdateTeleportList()
-    UpdateBringList()
+    UpdatePlayerList() UpdateTeleportList() UpdateBringList()
 end)
 
 Players.PlayerRemoving:Connect(function(player)
-    if ProtectedPlayersSet[player.Name] then
-        RemoveProtectedPlayer(player)
-    end
+    if ProtectedPlayersSet[player.Name] then RemoveProtectedPlayer(player) end
     CleanupESP(player)
     task.wait(0.5)
-    UpdatePlayerList()
-    UpdateTeleportList()
-    UpdateBringList()
+    UpdatePlayerList() UpdateTeleportList() UpdateBringList()
 end)
 
 LocalPlayer.CharacterAdded:Connect(function()
@@ -3079,22 +2198,16 @@ LocalPlayer.CharacterAdded:Connect(function()
     noclipActive = false
     flyRunning = false
     lockedTarget = nil
-    
     if getgenv().RapidFireEnabled then
-        StopRapidFire()
-        task.wait(0.1)
-        StartRapidFire()
+        StopRapidFire() task.wait(0.1) StartRapidFire()
     end
-    
     if Settings.ESPEnabled then
-        CleanupAllESP()
-        task.wait(0.2)
-        StartESP()
+        CleanupAllESP() task.wait(0.2) StartESP()
     end
 end)
 
 -- ============================================
--- FLY FUNCTION
+-- FLY / NOCLIP
 -- ============================================
 
 local function Fly()
@@ -3102,59 +2215,39 @@ local function Fly()
         if flyRunning then
             flyRunning = false
             local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.PlatformStand = false
-            end
+            if char and char:FindFirstChild("Humanoid") then char.Humanoid.PlatformStand = false end
         end
         return
     end
-    
     local char = LocalPlayer.Character
     if not char then return end
-    
     local hrp = char:FindFirstChild("HumanoidRootPart")
     local humanoid = char:FindFirstChild("Humanoid")
-    
     if not hrp or not humanoid then return end
-    
     flyRunning = true
     humanoid.PlatformStand = true
-    
     local movement = Vector3.new(0, 0, 0)
-    local cameraCFrame = Camera.CFrame
-    local forward = cameraCFrame.LookVector * Vector3.new(1, 0, 1)
-    local right = cameraCFrame.RightVector * Vector3.new(1, 0, 1)
-    
+    local camCF = Camera.CFrame
+    local forward = camCF.LookVector * Vector3.new(1, 0, 1)
+    local right = camCF.RightVector * Vector3.new(1, 0, 1)
     if UserInputService:IsKeyDown(Enum.KeyCode.W) then movement = movement + forward end
     if UserInputService:IsKeyDown(Enum.KeyCode.S) then movement = movement - forward end
     if UserInputService:IsKeyDown(Enum.KeyCode.A) then movement = movement - right end
     if UserInputService:IsKeyDown(Enum.KeyCode.D) then movement = movement + right end
     if UserInputService:IsKeyDown(Enum.KeyCode.Space) then movement = movement + Vector3.new(0, 1, 0) end
     if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then movement = movement - Vector3.new(0, 1, 0) end
-    
-    if movement.Magnitude > 0 then
-        movement = movement.Unit * getgenv().FlySpeed
-    end
-    
+    if movement.Magnitude > 0 then movement = movement.Unit * getgenv().FlySpeed end
     hrp.Velocity = movement
 end
-
--- ============================================
--- NOCLIP FUNCTION
--- ============================================
 
 local function Noclip()
     local enabled = getgenv().NoclipEnabled
     if noclipActive == enabled then return end
-    
     noclipActive = enabled
     local char = LocalPlayer.Character
     if not char then return end
-    
     for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = not enabled
-        end
+        if part:IsA("BasePart") then part.CanCollide = not enabled end
     end
 end
 
@@ -3165,156 +2258,94 @@ end
 local function IsEnemy(player)
     if not player or player == LocalPlayer then return false end
     if not getgenv().TeamCheck then return true end
-    
-    local localTeam = LocalPlayer.Team
-    local targetTeam = player.Team
-    
-    if not localTeam then return true end
-    if not targetTeam then return true end
-    
-    return localTeam ~= targetTeam
+    if not LocalPlayer.Team then return true end
+    if not player.Team then return true end
+    return LocalPlayer.Team ~= player.Team
 end
 
 local function IsPlayerVisible(player)
     if not player or not player.Character then return false end
-    
-    local targetPart = player.Character:FindFirstChild("Head")
-    if not targetPart then
-        targetPart = player.Character:FindFirstChild("HumanoidRootPart")
-        if not targetPart then return false end
-    end
-    
-    local targetPos = targetPart.Position
+    local targetPart = player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart")
+    if not targetPart then return false end
     local origin = Camera.CFrame.Position
-    
-    local direction = (targetPos - origin)
+    local direction = targetPart.Position - origin
     local distance = direction.Magnitude
     direction = direction.Unit
-    
     local params = RaycastParams.new()
     params.FilterDescendantsInstances = {LocalPlayer.Character}
     params.FilterType = Enum.RaycastFilterType.Blacklist
     params.IgnoreWater = true
-    
     local result = Workspace:Raycast(origin, direction * distance, params)
-    
     if not result then return true end
     if result.Instance and result.Instance:IsDescendantOf(player.Character) then return true end
-    
     return false
 end
 
 local function GetTargetPosition(player)
-    if not player or not player.Character then return nil, nil end
-    
-    local head = player.Character:FindFirstChild("Head")
-    if not head or not head:IsA("BasePart") then
-        head = player.Character:FindFirstChild("HumanoidRootPart")
-        if not head then return nil, nil end
-    end
-    
+    if not player or not player.Character then return nil end
+    local head = player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart")
+    if not head then return nil end
     local velocity = Vector3.new(0, 0, 0)
-    local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-    if rootPart then
-        velocity = rootPart.Velocity
-    end
-    
-    local prediction = getgenv().Prediction or 0
-    return head.Position + (velocity * prediction), head.Position
+    local root = player.Character:FindFirstChild("HumanoidRootPart")
+    if root then velocity = root.Velocity end
+    return head.Position + (velocity * (getgenv().Prediction or 0))
 end
 
 local function IsValidTarget(player)
     if not player then return false end
     if player == LocalPlayer then return false end
     if not player.Character then return false end
-    
-    if getgenv().FriendProtection and IsProtected(player) then
-        return false
-    end
-    
+    if getgenv().FriendProtection and IsProtected(player) then return false end
     local humanoid = player.Character:FindFirstChild("Humanoid")
     if not humanoid or humanoid.Health <= 0 then return false end
-    
     if not IsEnemy(player) then return false end
-    
     return true
 end
 
 local function GetBestTarget()
     if not getgenv().AimbotEnabled then return nil end
-    
     local mousePos = UserInputService:GetMouseLocation()
     local fov = getgenv().AimFOV
     local wallCheck = getgenv().WallCheck
     
     if lockedTarget and IsValidTarget(lockedTarget) then
-        local targetPos, _ = GetTargetPosition(lockedTarget)
+        local targetPos = GetTargetPosition(lockedTarget)
         if targetPos then
-            if wallCheck and not IsPlayerVisible(lockedTarget) then
-                lockedTarget = nil
-            else
+            if not (wallCheck and not IsPlayerVisible(lockedTarget)) then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(targetPos)
                 if onScreen then
-                    local distFromCrosshair = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                    if distFromCrosshair < fov * 1.5 then
-                        return {
-                            Position = targetPos,
-                            ScreenPos = screenPos,
-                            Player = lockedTarget,
-                            ScreenX = screenPos.X,
-                            ScreenY = screenPos.Y
-                        }
-                    else
-                        lockedTarget = nil
-                    end
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    if dist < fov * 1.5 then
+                        return {Position = targetPos, ScreenPos = screenPos, Player = lockedTarget, ScreenX = screenPos.X, ScreenY = screenPos.Y}
+                    else lockedTarget = nil end
                 end
-            end
-        else
-            lockedTarget = nil
-        end
+            else lockedTarget = nil end
+        else lockedTarget = nil end
     end
     
-    local players = Players:GetPlayers()
-    local sortedTargets = {}
-    
-    for _, player in pairs(players) do
+    local sorted = {}
+    for _, player in pairs(Players:GetPlayers()) do
         if IsValidTarget(player) then
-            local targetPos, _ = GetTargetPosition(player)
+            local targetPos = GetTargetPosition(player)
             if targetPos then
-                if wallCheck and not IsPlayerVisible(player) then
-                    -- Skip this player
-                else
+                if not (wallCheck and not IsPlayerVisible(player)) then
                     local screenPos, onScreen = Camera:WorldToViewportPoint(targetPos)
                     if onScreen then
-                        local distFromCrosshair = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                        if distFromCrosshair < fov then
-                            table.insert(sortedTargets, {
-                                player = player,
-                                targetPos = targetPos,
-                                screenPos = screenPos,
-                                distance = distFromCrosshair
-                            })
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                        if dist < fov then
+                            table.insert(sorted, {player = player, targetPos = targetPos, screenPos = screenPos, distance = dist})
                         end
                     end
                 end
             end
         end
     end
-    
-    table.sort(sortedTargets, function(a, b) return a.distance < b.distance end)
-    
-    if #sortedTargets > 0 then
-        local best = sortedTargets[1]
+    table.sort(sorted, function(a, b) return a.distance < b.distance end)
+    if #sorted > 0 then
+        local best = sorted[1]
         lockedTarget = best.player
-        return {
-            Position = best.targetPos,
-            ScreenPos = best.screenPos,
-            Player = best.player,
-            ScreenX = best.screenPos.X,
-            ScreenY = best.screenPos.Y
-        }
+        return {Position = best.targetPos, ScreenPos = best.screenPos, Player = best.player, ScreenX = best.screenPos.X, ScreenY = best.screenPos.Y}
     end
-    
     lockedTarget = nil
     return nil
 end
@@ -3343,41 +2374,22 @@ RunService.RenderStepped:Connect(function()
         local target = GetBestTarget()
         if target and target.ScreenPos then
             local mousePos = UserInputService:GetMouseLocation()
-            
             local deltaX = target.ScreenX - mousePos.X
             local deltaY = target.ScreenY - mousePos.Y
-            
             local lockStrength = getgenv().AimLockStrength or 1.0
             local smoothness = getgenv().Smoothness or 100
-            
             local smoothFactor = smoothness / 100
             local baseFactor = 1 - (smoothFactor * 0.95)
-            
             local effectiveFactor = baseFactor * (1 + (lockStrength - 0.5) * 0.5)
             effectiveFactor = math.clamp(effectiveFactor, 0.03, 1)
-            
             local moveX = deltaX * effectiveFactor
             local moveY = deltaY * effectiveFactor
-            
             local distance = math.sqrt(deltaX^2 + deltaY^2)
-            
-            if distance > 100 then
-                moveX = moveX * 1.5
-                moveY = moveY * 1.5
-            elseif distance < 5 then
-                mousemoverel(deltaX * 0.9, deltaY * 0.9)
-                return
-            end
-            
-            if math.abs(deltaX) > 0.1 or math.abs(deltaY) > 0.1 then
-                mousemoverel(moveX, moveY)
-            end
-        else
-            lockedTarget = nil
-        end
-    else
-        lockedTarget = nil
-    end
+            if distance > 100 then moveX = moveX * 1.5 moveY = moveY * 1.5
+            elseif distance < 5 then mousemoverel(deltaX * 0.9, deltaY * 0.9) return end
+            if math.abs(deltaX) > 0.1 or math.abs(deltaY) > 0.1 then mousemoverel(moveX, moveY) end
+        else lockedTarget = nil end
+    else lockedTarget = nil end
 end)
 
 -- ============================================
@@ -3389,24 +2401,12 @@ task.wait(1)
 CreateGUI()
 ScriptLoaded = true
 
-ShowStartupMessage()
-
--- Start ESP if it was enabled
 if Settings.ESPEnabled then
-    CreateESPFolder()
     task.wait(0.5)
     StartESP()
 end
 
-print("✅ FRShYHub V1 Loaded - Made by clipz!")
-print("📁 Tabs: Aimbot | Visuals | ESP | Keybinds | Friend Manager | Slots | Misc")
-print("🔑 Edit keybinds in the Keybinds tab! (All default to None)")
-print("🔒 Right Shift - Show/Hide GUI (FIXED)")
-print("🎯 Customize FOV in Visuals tab!")
-print("💾 10 Nameable Slots - Save/Load configurations!")
-print("💾 Settings auto-save ENABLED")
-print("🛡️ Protected players: " .. #ProtectedPlayers)
-print("⌨️ Keybinds work even when menu is closed!")
-print("🔫 Rapid Fire added - Click button to toggle ON/OFF")
-print("🎯 Smoothness: 0 = rage (instant), 100 = max legit (slow smooth)")
-print("👁️ ESP added - Box, Name, Health, Distance, Skeleton!")
+print("✅ FRShYHub V1 Loaded!")
+print("🔒 Right Shift - Show/Hide GUI")
+print("🔑 Keybinds tab - Click button, then press key")
+print("👁️ ESP - Check the ESP tab")
