@@ -28,13 +28,13 @@ while not LocalPlayer do task.wait() end
 local Keybinds = {
     ToggleAimbot = nil, ToggleFly = nil, ToggleNoclip = nil,
     TeleportToTarget = nil, BringTarget = nil, ToggleRapidFire = nil,
-    ToggleESP = nil, ToggleAttach = nil, ToggleWalkSpeed = nil
+    ToggleESP = nil, ToggleAttach = nil
 }
 
 local KeybindDebounce = {
     ToggleAimbot = false, ToggleFly = false, ToggleNoclip = false,
     TeleportToTarget = false, BringTarget = false, ToggleRapidFire = false,
-    ToggleESP = false, ToggleAttach = false, ToggleWalkSpeed = false
+    ToggleESP = false, ToggleAttach = false
 }
 
 -- ============================================
@@ -53,15 +53,12 @@ local Settings = {
     Keybind_ToggleNoclip = "None", Keybind_TeleportToTarget = "None",
     Keybind_BringTarget = "None", Keybind_ToggleRapidFire = "None",
     Keybind_ToggleESP = "None", Keybind_ToggleAttach = "None",
-    Keybind_ToggleWalkSpeed = "None",
     ESPEnabled = false, ESPBox = true, ESPName = true, ESPHealth = true,
     ESPDistance = false, ESPSkeleton = false, ESPTeamCheck = true,
     ESPFriendCheck = true, ESPColorMode = "Team", ESPCustomColor = {255, 0, 0},
     ESPBoxThickness = 1, ESPTextSize = 13, ESPShowLocal = false,
     AttachEnabled = false, AttachTarget = nil,
     AttachOffsetX = 0, AttachOffsetY = 2, AttachOffsetZ = 3, AttachLockRotation = true,
-    WalkSpeedEnabled = false, WalkSpeedValue = 32, DefaultWalkSpeed = 16,
-    JumpPowerEnabled = false, JumpPowerValue = 50
 }
 
 local function StringToKeyCode(str)
@@ -108,7 +105,6 @@ Keybinds.BringTarget = StringToKeyCode(Settings.Keybind_BringTarget)
 Keybinds.ToggleRapidFire = StringToKeyCode(Settings.Keybind_ToggleRapidFire)
 Keybinds.ToggleESP = StringToKeyCode(Settings.Keybind_ToggleESP)
 Keybinds.ToggleAttach = StringToKeyCode(Settings.Keybind_ToggleAttach)
-Keybinds.ToggleWalkSpeed = StringToKeyCode(Settings.Keybind_ToggleWalkSpeed)
 
 for key, value in pairs(Settings) do
     if key ~= "ProtectedPlayers" and key ~= "FOVShape" and key ~= "FOVColor" and key ~= "ESPCustomColor" and not string.match(key, "Keybind_") then
@@ -159,8 +155,6 @@ local function SaveToSlot(slotNumber)
         RapidFireDelay = getgenv().RapidFireDelay,
         AttachOffsetX = Settings.AttachOffsetX, AttachOffsetY = Settings.AttachOffsetY,
         AttachOffsetZ = Settings.AttachOffsetZ, AttachLockRotation = Settings.AttachLockRotation,
-        WalkSpeedEnabled = Settings.WalkSpeedEnabled, WalkSpeedValue = Settings.WalkSpeedValue,
-        JumpPowerEnabled = Settings.JumpPowerEnabled, JumpPowerValue = Settings.JumpPowerValue,
         Keybind_ToggleAimbot = Settings.Keybind_ToggleAimbot,
         Keybind_ToggleFly = Settings.Keybind_ToggleFly,
         Keybind_ToggleNoclip = Settings.Keybind_ToggleNoclip,
@@ -169,7 +163,6 @@ local function SaveToSlot(slotNumber)
         Keybind_ToggleRapidFire = Settings.Keybind_ToggleRapidFire,
         Keybind_ToggleESP = Settings.Keybind_ToggleESP,
         Keybind_ToggleAttach = Settings.Keybind_ToggleAttach,
-        Keybind_ToggleWalkSpeed = Settings.Keybind_ToggleWalkSpeed,
         ESPEnabled = Settings.ESPEnabled, ESPBox = Settings.ESPBox,
         ESPName = Settings.ESPName, ESPHealth = Settings.ESPHealth,
         ESPDistance = Settings.ESPDistance, ESPSkeleton = Settings.ESPSkeleton,
@@ -212,7 +205,6 @@ local function LoadFromSlot(slotNumber)
     Keybinds.ToggleRapidFire = StringToKeyCode(Settings.Keybind_ToggleRapidFire)
     Keybinds.ToggleESP = StringToKeyCode(Settings.Keybind_ToggleESP)
     Keybinds.ToggleAttach = StringToKeyCode(Settings.Keybind_ToggleAttach)
-    Keybinds.ToggleWalkSpeed = StringToKeyCode(Settings.Keybind_ToggleWalkSpeed)
     SaveSettings()
     if UpdateFOVCircle then UpdateFOVCircle() end
     if UpdateKeybindLabels then UpdateKeybindLabels() end
@@ -443,126 +435,6 @@ local function ToggleAttach()
 end
 
 -- ============================================
--- WALKSPEED / JUMPPOWER
--- ============================================
-
-local WalkSpeedConnection = nil
-
-local function ApplyWalkSpeed()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    pcall(function()
-        if Settings.WalkSpeedEnabled then
-            humanoid.WalkSpeed = Settings.WalkSpeedValue
-        else
-            humanoid.WalkSpeed = Settings.DefaultWalkSpeed
-        end
-    end)
-end
-
-local function ApplyJumpPower()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    pcall(function()
-        if Settings.JumpPowerEnabled then
-            if humanoid.UseJumpPower then
-                humanoid.JumpPower = Settings.JumpPowerValue
-            else
-                humanoid.JumpHeight = Settings.JumpPowerValue / 7.2
-            end
-        else
-            if humanoid.UseJumpPower then
-                humanoid.JumpPower = 50
-            else
-                humanoid.JumpHeight = 7.2
-            end
-        end
-    end)
-end
-
-local function StartWalkSpeedLoop()
-    if WalkSpeedConnection then return end
-    WalkSpeedConnection = RunService.Heartbeat:Connect(function()
-        if not Settings.WalkSpeedEnabled and not Settings.JumpPowerEnabled then return end
-        local char = LocalPlayer.Character
-        if not char then return end
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return end
-        pcall(function()
-            if Settings.WalkSpeedEnabled then
-                if humanoid.WalkSpeed ~= Settings.WalkSpeedValue then
-                    humanoid.WalkSpeed = Settings.WalkSpeedValue
-                end
-            end
-            if Settings.JumpPowerEnabled then
-                if humanoid.UseJumpPower then
-                    if humanoid.JumpPower ~= Settings.JumpPowerValue then
-                        humanoid.JumpPower = Settings.JumpPowerValue
-                    end
-                else
-                    local targetHeight = Settings.JumpPowerValue / 7.2
-                    if humanoid.JumpHeight ~= targetHeight then
-                        humanoid.JumpHeight = targetHeight
-                    end
-                end
-            end
-        end)
-    end)
-end
-
-local function StopWalkSpeedLoop()
-    if WalkSpeedConnection then
-        WalkSpeedConnection:Disconnect()
-        WalkSpeedConnection = nil
-    end
-end
-
-local function ToggleWalkSpeed()
-    Settings.WalkSpeedEnabled = not Settings.WalkSpeedEnabled
-    getgenv().WalkSpeedEnabled = Settings.WalkSpeedEnabled
-    SaveSettings()
-    if Settings.WalkSpeedEnabled then
-        ApplyWalkSpeed()
-        StartWalkSpeedLoop()
-    else
-        ApplyWalkSpeed()
-        if not Settings.JumpPowerEnabled then StopWalkSpeedLoop() end
-    end
-    UpdateAllTabButtons()
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "🏃 WalkSpeed " .. (Settings.WalkSpeedEnabled and "ON" or "OFF")
-        SaveStatusLabel.TextColor3 = Settings.WalkSpeedEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
-    print("🏃 WalkSpeed " .. (Settings.WalkSpeedEnabled and "ENABLED" or "DISABLED"))
-end
-
-local function ToggleJumpPower()
-    Settings.JumpPowerEnabled = not Settings.JumpPowerEnabled
-    getgenv().JumpPowerEnabled = Settings.JumpPowerEnabled
-    SaveSettings()
-    if Settings.JumpPowerEnabled then
-        ApplyJumpPower()
-        StartWalkSpeedLoop()
-    else
-        ApplyJumpPower()
-        if not Settings.WalkSpeedEnabled then StopWalkSpeedLoop() end
-    end
-    UpdateAllTabButtons()
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "🦘 JumpPower " .. (Settings.JumpPowerEnabled and "ON" or "OFF")
-        SaveStatusLabel.TextColor3 = Settings.JumpPowerEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
-end
-
--- ============================================
 -- RAPID FIRE
 -- ============================================
 
@@ -772,7 +644,8 @@ local function UpdateESP(player)
             if part then
                 local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
                 if onScreen then return Vector2.new(pos.X, pos.Y) end
-            end            return nil
+            end
+            return nil
         end
         local headS = getPos("Head")
         local upperTorso = getPos("UpperTorso") or getPos("Torso")
@@ -868,8 +741,6 @@ local KeybindButtons = {}
 local AimbotTabButtons = {}
 local MiscTabButtons = {}
 local ESPToggleBtnRef = nil
-local WalkSpeedBtnRef = nil
-local JumpPowerBtnRef = nil
 
 -- ============================================
 -- UPDATE FUNCTIONS
@@ -1021,16 +892,6 @@ local function UpdateAllTabButtons()
         MiscTabButtons["RapidFire"].TextColor3 = on and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
         MiscTabButtons["RapidFire"].BorderColor3 = on and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
     end
-    if WalkSpeedBtnRef then
-        WalkSpeedBtnRef.Text = "🏃 WalkSpeed: " .. (Settings.WalkSpeedEnabled and "ON" or "OFF")
-        WalkSpeedBtnRef.TextColor3 = Settings.WalkSpeedEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(0, 255, 150)
-        WalkSpeedBtnRef.BorderColor3 = Settings.WalkSpeedEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(0, 255, 150)
-    end
-    if JumpPowerBtnRef then
-        JumpPowerBtnRef.Text = "🦘 JumpPower: " .. (Settings.JumpPowerEnabled and "ON" or "OFF")
-        JumpPowerBtnRef.TextColor3 = Settings.JumpPowerEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(0, 255, 150)
-        JumpPowerBtnRef.BorderColor3 = Settings.JumpPowerEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(0, 255, 150)
-    end
     if ESPToggleBtnRef then
         ESPToggleBtnRef.Text = "👁️ ESP: " .. (Settings.ESPEnabled and "ON" or "OFF")
         ESPToggleBtnRef.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
@@ -1042,7 +903,7 @@ local function UpdateKeybindLabels()
     for action, button in pairs(KeybindButtons) do
         if button then
             local key = Keybinds[action]
-            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("WalkSpeed", "Walk Speed")
+            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
             button.Text = displayName .. ": " .. (key and KeyCodeToString(key) or "None")
         end
     end
@@ -1144,7 +1005,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if key == Enum.KeyCode.RightShift then
             print("❌ Cannot bind Right Shift")
             if button then
-                local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("WalkSpeed", "Walk Speed")
+                local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
                 button.Text = displayName .. ": " .. (Keybinds[action] and KeyCodeToString(Keybinds[action]) or "None")
                 button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
             end
@@ -1157,7 +1018,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         Settings["Keybind_" .. action] = KeyCodeToString(key)
         SaveSettings()
         if button then
-            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("WalkSpeed", "Walk Speed")
+            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
             button.Text = displayName .. ": " .. KeyCodeToString(key)
             button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
         end
@@ -1197,10 +1058,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         KeybindDebounce.ToggleAttach = true ToggleAttach()
         task.delay(0.3, function() KeybindDebounce.ToggleAttach = false end) return
     end
-    if Keybinds.ToggleWalkSpeed and input.KeyCode == Keybinds.ToggleWalkSpeed and not KeybindDebounce.ToggleWalkSpeed then
-        KeybindDebounce.ToggleWalkSpeed = true ToggleWalkSpeed()
-        task.delay(0.3, function() KeybindDebounce.ToggleWalkSpeed = false end) return
-    end
     if Keybinds.TeleportToTarget and input.KeyCode == Keybinds.TeleportToTarget and lockedTarget and not KeybindDebounce.TeleportToTarget then
         KeybindDebounce.TeleportToTarget = true TeleportToPlayer(lockedTarget)
         task.delay(0.3, function() KeybindDebounce.TeleportToTarget = false end) return
@@ -1218,11 +1075,6 @@ end)
 local function GoLegit()
     print("Going legit...")
     DetachFromPlayer()
-    Settings.WalkSpeedEnabled = false
-    Settings.JumpPowerEnabled = false
-    ApplyWalkSpeed()
-    ApplyJumpPower()
-    StopWalkSpeedLoop()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("Humanoid") then char.Humanoid.PlatformStand = false end
     if char then
@@ -1704,7 +1556,7 @@ local function CreateGUI()
     KeybindInfo.TextSize = 11
     KeybindInfo.Parent = KeybindsTab
 
-    local keybindActions = {"ToggleAimbot","ToggleFly","ToggleNoclip","ToggleESP","TeleportToTarget","BringTarget","ToggleRapidFire","ToggleAttach","ToggleWalkSpeed"}
+    local keybindActions = {"ToggleAimbot","ToggleFly","ToggleNoclip","ToggleESP","TeleportToTarget","BringTarget","ToggleRapidFire","ToggleAttach"}
     local keyY = 25
     for _, action in ipairs(keybindActions) do
         local Container = Instance.new("Frame")
@@ -1717,7 +1569,7 @@ local function CreateGUI()
         local Label = Instance.new("TextLabel")
         Label.Size = UDim2.new(0.4, 0, 1, 0)
         Label.Position = UDim2.new(0, 5, 0, 0)
-        local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("WalkSpeed", "Walk Speed")
+        local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
         Label.Text = displayName
         Label.TextColor3 = Color3.fromRGB(200, 200, 200)
         Label.BackgroundTransparency = 1
@@ -2027,117 +1879,10 @@ local function CreateGUI()
         else SpeedSlider.Text = tostring(getgenv().FlySpeed) end
     end)
 
-    -- ============================================
-    -- WALKSPEED CHANGER (NEW)
-    -- ============================================
-
-    WalkSpeedBtnRef = Instance.new("TextButton")
-    WalkSpeedBtnRef.Name = "WalkSpeedBtn"
-    WalkSpeedBtnRef.Size = UDim2.new(1, 0, 0, 26)
-    WalkSpeedBtnRef.Position = UDim2.new(0, 0, 0, 105)
-    WalkSpeedBtnRef.Text = "🏃 WalkSpeed: OFF"
-    WalkSpeedBtnRef.TextColor3 = Color3.fromRGB(0, 255, 150)
-    WalkSpeedBtnRef.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    WalkSpeedBtnRef.Font = Enum.Font.GothamBold
-    WalkSpeedBtnRef.TextSize = 12
-    WalkSpeedBtnRef.BorderSizePixel = 2
-    WalkSpeedBtnRef.BorderColor3 = Color3.fromRGB(0, 255, 150)
-    WalkSpeedBtnRef.Parent = MiscTab
-    WalkSpeedBtnRef.MouseButton1Click:Connect(ToggleWalkSpeed)
-    MiscTabButtons["WalkSpeed"] = WalkSpeedBtnRef
-
-    local WSContainer = Instance.new("Frame")
-    WSContainer.Size = UDim2.new(1, 0, 0, 42)
-    WSContainer.Position = UDim2.new(0, 0, 0, 135)
-    WSContainer.BackgroundTransparency = 1
-    WSContainer.Parent = MiscTab
-    local WSLabel = Instance.new("TextLabel")
-    WSLabel.Size = UDim2.new(1, 0, 0, 18)
-    WSLabel.Text = "WalkSpeed Value: " .. (Settings.WalkSpeedValue or 32)
-    WSLabel.TextColor3 = Color3.fromRGB(0, 200, 150)
-    WSLabel.BackgroundTransparency = 1
-    WSLabel.Font = Enum.Font.Gotham
-    WSLabel.TextSize = 12
-    WSLabel.TextXAlignment = Enum.TextXAlignment.Left
-    WSLabel.Parent = WSContainer
-    local WSSlider = Instance.new("TextBox")
-    WSSlider.Size = UDim2.new(1, 0, 0, 22)
-    WSSlider.Position = UDim2.new(0, 0, 0, 20)
-    WSSlider.Text = tostring(Settings.WalkSpeedValue or 32)
-    WSSlider.TextColor3 = Color3.fromRGB(0, 255, 150)
-    WSSlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    WSSlider.Font = Enum.Font.Gotham
-    WSSlider.TextSize = 12
-    WSSlider.Parent = WSContainer
-    WSSlider.FocusLost:Connect(function()
-        local val = tonumber(WSSlider.Text)
-        if val then
-            val = math.clamp(val, 1, 500)
-            Settings.WalkSpeedValue = val
-            getgenv().WalkSpeedValue = val
-            WSLabel.Text = "WalkSpeed Value: " .. val
-            WSSlider.Text = tostring(val)
-            SaveSettings()
-            if Settings.WalkSpeedEnabled then ApplyWalkSpeed() end
-        else WSSlider.Text = tostring(Settings.WalkSpeedValue or 32) end
-    end)
-
-    JumpPowerBtnRef = Instance.new("TextButton")
-    JumpPowerBtnRef.Name = "JumpPowerBtn"
-    JumpPowerBtnRef.Size = UDim2.new(1, 0, 0, 26)
-    JumpPowerBtnRef.Position = UDim2.new(0, 0, 0, 180)
-    JumpPowerBtnRef.Text = "🦘 JumpPower: OFF"
-    JumpPowerBtnRef.TextColor3 = Color3.fromRGB(0, 255, 150)
-    JumpPowerBtnRef.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    JumpPowerBtnRef.Font = Enum.Font.GothamBold
-    JumpPowerBtnRef.TextSize = 12
-    JumpPowerBtnRef.BorderSizePixel = 2
-    JumpPowerBtnRef.BorderColor3 = Color3.fromRGB(0, 255, 150)
-    JumpPowerBtnRef.Parent = MiscTab
-    JumpPowerBtnRef.MouseButton1Click:Connect(ToggleJumpPower)
-    MiscTabButtons["JumpPower"] = JumpPowerBtnRef
-
-    local JPContainer = Instance.new("Frame")
-    JPContainer.Size = UDim2.new(1, 0, 0, 42)
-    JPContainer.Position = UDim2.new(0, 0, 0, 210)
-    JPContainer.BackgroundTransparency = 1
-    JPContainer.Parent = MiscTab
-    local JPLabel = Instance.new("TextLabel")
-    JPLabel.Size = UDim2.new(1, 0, 0, 18)
-    JPLabel.Text = "JumpPower Value: " .. (Settings.JumpPowerValue or 50)
-    JPLabel.TextColor3 = Color3.fromRGB(0, 200, 150)
-    JPLabel.BackgroundTransparency = 1
-    JPLabel.Font = Enum.Font.Gotham
-    JPLabel.TextSize = 12
-    JPLabel.TextXAlignment = Enum.TextXAlignment.Left
-    JPLabel.Parent = JPContainer
-    local JPSlider = Instance.new("TextBox")
-    JPSlider.Size = UDim2.new(1, 0, 0, 22)
-    JPSlider.Position = UDim2.new(0, 0, 0, 20)
-    JPSlider.Text = tostring(Settings.JumpPowerValue or 50)
-    JPSlider.TextColor3 = Color3.fromRGB(0, 255, 150)
-    JPSlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    JPSlider.Font = Enum.Font.Gotham
-    JPSlider.TextSize = 12
-    JPSlider.Parent = JPContainer
-    JPSlider.FocusLost:Connect(function()
-        local val = tonumber(JPSlider.Text)
-        if val then
-            val = math.clamp(val, 10, 500)
-            Settings.JumpPowerValue = val
-            getgenv().JumpPowerValue = val
-            JPLabel.Text = "JumpPower Value: " .. val
-            JPSlider.Text = tostring(val)
-            SaveSettings()
-            if Settings.JumpPowerEnabled then ApplyJumpPower() end
-        else JPSlider.Text = tostring(Settings.JumpPowerValue or 50) end
-    end)
-
-    -- RAPID FIRE (moved down)
     local RapidFireBtn = Instance.new("TextButton")
     RapidFireBtn.Name = "RapidFireBtn"
     RapidFireBtn.Size = UDim2.new(1, 0, 0, 26)
-    RapidFireBtn.Position = UDim2.new(0, 0, 0, 255)
+    RapidFireBtn.Position = UDim2.new(0, 0, 0, 105)
     RapidFireBtn.Text = "🔫 Rapid Fire: OFF"
     RapidFireBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
     RapidFireBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
@@ -2151,7 +1896,7 @@ local function CreateGUI()
 
     local RFDelayContainer = Instance.new("Frame")
     RFDelayContainer.Size = UDim2.new(1, 0, 0, 42)
-    RFDelayContainer.Position = UDim2.new(0, 0, 0, 285)
+    RFDelayContainer.Position = UDim2.new(0, 0, 0, 135)
     RFDelayContainer.BackgroundTransparency = 1
     RFDelayContainer.Parent = MiscTab
     local RFDelayLabel = Instance.new("TextLabel")
@@ -2187,7 +1932,7 @@ local function CreateGUI()
 
     local TeleportLabel = Instance.new("TextLabel")
     TeleportLabel.Size = UDim2.new(1, 0, 0, 18)
-    TeleportLabel.Position = UDim2.new(0, 0, 0, 335)
+    TeleportLabel.Position = UDim2.new(0, 0, 0, 185)
     TeleportLabel.Text = "📍 Teleport"
     TeleportLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
     TeleportLabel.BackgroundTransparency = 1
@@ -2198,7 +1943,7 @@ local function CreateGUI()
 
     TeleportSearchBar = Instance.new("TextBox")
     TeleportSearchBar.Size = UDim2.new(1, 0, 0, 22)
-    TeleportSearchBar.Position = UDim2.new(0, 0, 0, 355)
+    TeleportSearchBar.Position = UDim2.new(0, 0, 0, 205)
     TeleportSearchBar.PlaceholderText = "🔍 Search to teleport..."
     TeleportSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
     TeleportSearchBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
@@ -2213,8 +1958,8 @@ local function CreateGUI()
     end)
 
     TeleportListFrame = Instance.new("ScrollingFrame")
-    TeleportListFrame.Size = UDim2.new(1, 0, 0, 50)
-    TeleportListFrame.Position = UDim2.new(0, 0, 0, 380)
+    TeleportListFrame.Size = UDim2.new(1, 0, 0, 60)
+    TeleportListFrame.Position = UDim2.new(0, 0, 0, 230)
     TeleportListFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 15)
     TeleportListFrame.BorderSizePixel = 1
     TeleportListFrame.BorderColor3 = Color3.fromRGB(0, 150, 255)
@@ -2224,7 +1969,7 @@ local function CreateGUI()
 
     local BringLabel = Instance.new("TextLabel")
     BringLabel.Size = UDim2.new(1, 0, 0, 18)
-    BringLabel.Position = UDim2.new(0, 0, 0, 435)
+    BringLabel.Position = UDim2.new(0, 0, 0, 295)
     BringLabel.Text = "🔄 Bring Players"
     BringLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
     BringLabel.BackgroundTransparency = 1
@@ -2235,7 +1980,7 @@ local function CreateGUI()
 
     BringSearchBar = Instance.new("TextBox")
     BringSearchBar.Size = UDim2.new(1, 0, 0, 22)
-    BringSearchBar.Position = UDim2.new(0, 0, 0, 455)
+    BringSearchBar.Position = UDim2.new(0, 0, 0, 315)
     BringSearchBar.PlaceholderText = "🔍 Search to bring..."
     BringSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
     BringSearchBar.BackgroundColor3 = Color3.fromRGB(30, 20, 5)
@@ -2250,8 +1995,8 @@ local function CreateGUI()
     end)
 
     BringListFrame = Instance.new("ScrollingFrame")
-    BringListFrame.Size = UDim2.new(1, 0, 0, 50)
-    BringListFrame.Position = UDim2.new(0, 0, 0, 480)
+    BringListFrame.Size = UDim2.new(1, 0, 0, 60)
+    BringListFrame.Position = UDim2.new(0, 0, 0, 340)
     BringListFrame.BackgroundColor3 = Color3.fromRGB(10, 5, 0)
     BringListFrame.BorderSizePixel = 1
     BringListFrame.BorderColor3 = Color3.fromRGB(255, 200, 0)
@@ -2584,11 +2329,6 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     if Settings.ESPEnabled then
         CleanupAllESP() task.wait(0.2) StartESP()
     end
-    if Settings.WalkSpeedEnabled or Settings.JumpPowerEnabled then
-        task.wait(0.3)
-        ApplyWalkSpeed()
-        ApplyJumpPower()
-    end
     if getgenv().UpdateAttachList then getgenv().UpdateAttachList() end
 end)
 
@@ -2785,4 +2525,3 @@ end
 
 print("✅ FRShYHub V1 Loaded!")
 print("🔒 Right Shift - Show/Hide GUI")
-print("🏃 WalkSpeed Changer - Check the Misc tab")
