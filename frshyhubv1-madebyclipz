@@ -1,6 +1,10 @@
 --[[
     FRSHYHUB V1 - FRSHYWARE TEAM CHECK
     Made by clipz
+    + SHOOT THROUGH WALLS (WALLBANG)
+    + MAX LOCK STRENGTH (100 = HARD LOCK-ON)
+    + GO LEGIT FULLY REMOVES SCRIPT
+    + RAPID FIRE 0MS + SUPER FAST SHOOT (EVERY FRAME)
 ]]
 
 local function WaitForGame()
@@ -22,19 +26,38 @@ local HttpService = game:GetService("HttpService")
 while not LocalPlayer do task.wait() end
 
 -- ============================================
+-- CONNECTION TRACKER (for clean unload)
+-- ============================================
+
+local ActiveConnections = {}
+local function Track(connection)
+    table.insert(ActiveConnections, connection)
+    return connection
+end
+
+local function DisconnectAll()
+    for _, conn in ipairs(ActiveConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    ActiveConnections = {}
+end
+
+-- ============================================
 -- KEYBIND SETTINGS
 -- ============================================
 
 local Keybinds = {
     ToggleAimbot = nil, ToggleFly = nil, ToggleNoclip = nil,
     TeleportToTarget = nil, BringTarget = nil, ToggleRapidFire = nil,
-    ToggleESP = nil, ToggleAttach = nil
+    ToggleESP = nil, ToggleAttach = nil, ToggleWallBang = nil, ToggleSnapAim = nil,
+    ToggleSuperFast = nil
 }
 
 local KeybindDebounce = {
     ToggleAimbot = false, ToggleFly = false, ToggleNoclip = false,
     TeleportToTarget = false, BringTarget = false, ToggleRapidFire = false,
-    ToggleESP = false, ToggleAttach = false
+    ToggleESP = false, ToggleAttach = false, ToggleWallBang = false, ToggleSnapAim = false,
+    ToggleSuperFast = false
 }
 
 -- ============================================
@@ -43,22 +66,26 @@ local KeybindDebounce = {
 
 local Settings = {
     AimbotEnabled = false, TeamCheck = true, WallCheck = true,
-    AimFOV = 100, Smoothness = 100, ShowFOV = true,
+    AimFOV = 100, Smoothness = 0, ShowFOV = true,
     FlyEnabled = false, NoclipEnabled = false, FlySpeed = 50,
     Prediction = 0, AimLockStrength = 1.0, FriendProtection = true,
-    ProtectedPlayers = {}, RapidFireEnabled = false, RapidFireDelay = 0.05,
+    ProtectedPlayers = {}, RapidFireEnabled = false, RapidFireDelay = 0,
+    SuperFastShootEnabled = false,
     FOVShape = "Circle", FOVTransparency = 0.85, FOVColor = {0, 255, 0},
     FOVBorderSize = 2,
     Keybind_ToggleAimbot = "None", Keybind_ToggleFly = "None",
     Keybind_ToggleNoclip = "None", Keybind_TeleportToTarget = "None",
     Keybind_BringTarget = "None", Keybind_ToggleRapidFire = "None",
     Keybind_ToggleESP = "None", Keybind_ToggleAttach = "None",
+    Keybind_ToggleWallBang = "None", Keybind_ToggleSnapAim = "None",
+    Keybind_ToggleSuperFast = "None",
     ESPEnabled = false, ESPBox = true, ESPName = true, ESPHealth = true,
     ESPDistance = false, ESPSkeleton = false, ESPTeamCheck = true,
     ESPFriendCheck = true, ESPColorMode = "Team", ESPCustomColor = {255, 0, 0},
     ESPBoxThickness = 1, ESPTextSize = 13, ESPShowLocal = false,
     AttachEnabled = false, AttachTarget = nil,
     AttachOffsetX = 0, AttachOffsetY = 2, AttachOffsetZ = 3, AttachLockRotation = true,
+    WallBangEnabled = false, SnapAimEnabled = false,
 }
 
 local function StringToKeyCode(str)
@@ -105,12 +132,104 @@ Keybinds.BringTarget = StringToKeyCode(Settings.Keybind_BringTarget)
 Keybinds.ToggleRapidFire = StringToKeyCode(Settings.Keybind_ToggleRapidFire)
 Keybinds.ToggleESP = StringToKeyCode(Settings.Keybind_ToggleESP)
 Keybinds.ToggleAttach = StringToKeyCode(Settings.Keybind_ToggleAttach)
+Keybinds.ToggleWallBang = StringToKeyCode(Settings.Keybind_ToggleWallBang)
+Keybinds.ToggleSnapAim = StringToKeyCode(Settings.Keybind_ToggleSnapAim)
+Keybinds.ToggleSuperFast = StringToKeyCode(Settings.Keybind_ToggleSuperFast)
 
 for key, value in pairs(Settings) do
     if key ~= "ProtectedPlayers" and key ~= "FOVShape" and key ~= "FOVColor" and key ~= "ESPCustomColor" and not string.match(key, "Keybind_") then
         getgenv()[key] = value
     end
 end
+
+-- ============================================
+-- SHOOT THROUGH WALLS (WALLBANG)
+-- ============================================
+
+local WallBangActive = false
+local WallBangOriginalStates = {}
+
+local function EnableWallBang()
+    if WallBangActive then return end
+    WallBangActive = true
+    WallBangOriginalStates = {}
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local isCharacterPart = false
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player.Character and obj:IsDescendantOf(player.Character) then
+                    isCharacterPart = true
+                    break
+                end
+            end
+            if not isCharacterPart then
+                WallBangOriginalStates[obj] = obj.CanQuery
+                obj.CanQuery = false
+            end
+        end
+    end
+    print("🔫 WallBang ENABLED")
+    if SaveStatusLabel then
+        SaveStatusLabel.Text = "🔫 WallBang ON"
+        SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        SaveStatusLabel.Visible = true
+        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+    end
+end
+
+local function DisableWallBang()
+    if not WallBangActive then return end
+    WallBangActive = false
+    for obj, originalState in pairs(WallBangOriginalStates) do
+        pcall(function()
+            if obj and obj.Parent then
+                obj.CanQuery = originalState
+            end
+        end)
+    end
+    WallBangOriginalStates = {}
+    print("🔫 WallBang DISABLED")
+    if SaveStatusLabel then
+        SaveStatusLabel.Text = "🔫 WallBang OFF"
+        SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        SaveStatusLabel.Visible = true
+        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+    end
+end
+
+local function ToggleWallBang()
+    if WallBangActive then
+        DisableWallBang()
+        getgenv().WallBangEnabled = false
+    else
+        EnableWallBang()
+        getgenv().WallBangEnabled = true
+    end
+    Settings.WallBangEnabled = getgenv().WallBangEnabled
+    SaveSettings()
+    UpdateAllTabButtons()
+end
+
+local WallBangConnection = nil
+local function StartWallBangAutoRefresh()
+    if WallBangConnection then return end
+    WallBangConnection = Track(Workspace.DescendantAdded:Connect(function(obj)
+        if WallBangActive and obj:IsA("BasePart") then
+            local isCharacterPart = false
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player.Character and obj:IsDescendantOf(player.Character) then
+                    isCharacterPart = true
+                    break
+                end
+            end
+            if not isCharacterPart then
+                WallBangOriginalStates[obj] = obj.CanQuery
+                obj.CanQuery = false
+            end
+        end
+    end))
+end
+StartWallBangAutoRefresh()
 
 -- ============================================
 -- SLOT SYSTEM
@@ -153,6 +272,7 @@ local function SaveToSlot(slotNumber)
         FOVTransparency = Settings.FOVTransparency, FOVColor = Settings.FOVColor,
         FOVBorderSize = Settings.FOVBorderSize, RapidFireEnabled = getgenv().RapidFireEnabled,
         RapidFireDelay = getgenv().RapidFireDelay,
+        SuperFastShootEnabled = Settings.SuperFastShootEnabled,
         AttachOffsetX = Settings.AttachOffsetX, AttachOffsetY = Settings.AttachOffsetY,
         AttachOffsetZ = Settings.AttachOffsetZ, AttachLockRotation = Settings.AttachLockRotation,
         Keybind_ToggleAimbot = Settings.Keybind_ToggleAimbot,
@@ -163,13 +283,17 @@ local function SaveToSlot(slotNumber)
         Keybind_ToggleRapidFire = Settings.Keybind_ToggleRapidFire,
         Keybind_ToggleESP = Settings.Keybind_ToggleESP,
         Keybind_ToggleAttach = Settings.Keybind_ToggleAttach,
+        Keybind_ToggleWallBang = Settings.Keybind_ToggleWallBang,
+        Keybind_ToggleSnapAim = Settings.Keybind_ToggleSnapAim,
+        Keybind_ToggleSuperFast = Settings.Keybind_ToggleSuperFast,
         ESPEnabled = Settings.ESPEnabled, ESPBox = Settings.ESPBox,
         ESPName = Settings.ESPName, ESPHealth = Settings.ESPHealth,
         ESPDistance = Settings.ESPDistance, ESPSkeleton = Settings.ESPSkeleton,
         ESPTeamCheck = Settings.ESPTeamCheck, ESPFriendCheck = Settings.ESPFriendCheck,
         ESPColorMode = Settings.ESPColorMode, ESPCustomColor = Settings.ESPCustomColor,
         ESPBoxThickness = Settings.ESPBoxThickness, ESPTextSize = Settings.ESPTextSize,
-        ESPShowLocal = Settings.ESPShowLocal
+        ESPShowLocal = Settings.ESPShowLocal, WallBangEnabled = Settings.WallBangEnabled,
+        SnapAimEnabled = Settings.SnapAimEnabled
     }
     local success = pcall(function()
         writefile(GetSlotFilename(slotNumber), HttpService:JSONEncode(slotData))
@@ -186,9 +310,8 @@ local function LoadFromSlot(slotNumber)
     for key, value in pairs(decoded) do
         if key == "ProtectedPlayers" then
             ProtectedPlayers = value or {}
-            ProtectedPlayersSet = {}
-            for _, name in ipairs(ProtectedPlayers) do ProtectedPlayersSet[name] = true end
             Settings.ProtectedPlayers = ProtectedPlayers
+            RebuildProtectedSet()
         elseif key == "ESPCustomColor" then Settings.ESPCustomColor = value
         elseif key == "FOVColor" then Settings.FOVColor = value
         elseif string.match(key, "Keybind_") then Settings[key] = value
@@ -205,10 +328,15 @@ local function LoadFromSlot(slotNumber)
     Keybinds.ToggleRapidFire = StringToKeyCode(Settings.Keybind_ToggleRapidFire)
     Keybinds.ToggleESP = StringToKeyCode(Settings.Keybind_ToggleESP)
     Keybinds.ToggleAttach = StringToKeyCode(Settings.Keybind_ToggleAttach)
+    Keybinds.ToggleWallBang = StringToKeyCode(Settings.Keybind_ToggleWallBang)
+    Keybinds.ToggleSnapAim = StringToKeyCode(Settings.Keybind_ToggleSnapAim)
+    Keybinds.ToggleSuperFast = StringToKeyCode(Settings.Keybind_ToggleSuperFast)
     SaveSettings()
     if UpdateFOVCircle then UpdateFOVCircle() end
     if UpdateKeybindLabels then UpdateKeybindLabels() end
     if UpdateAllTabButtons then UpdateAllTabButtons() end
+    if Settings.WallBangEnabled and not WallBangActive then EnableWallBang()
+    elseif not Settings.WallBangEnabled and WallBangActive then DisableWallBang() end
     return true
 end
 
@@ -231,7 +359,19 @@ end
 
 local ProtectedPlayers = Settings.ProtectedPlayers or {}
 local ProtectedPlayersSet = {}
-for _, name in ipairs(ProtectedPlayers) do ProtectedPlayersSet[name] = true end
+
+local function RebuildProtectedSet()
+    ProtectedPlayersSet = {}
+    for _, entry in ipairs(ProtectedPlayers) do
+        if type(entry) == "table" then
+            if entry.Name then ProtectedPlayersSet[entry.Name] = true end
+            if entry.UserId then ProtectedPlayersSet[entry.UserId] = true end
+        else
+            ProtectedPlayersSet[entry] = true
+        end
+    end
+end
+RebuildProtectedSet()
 
 local PlayerButtons = {}
 local TeleportButtons = {}
@@ -243,37 +383,50 @@ local BringSearchQuery = ""
 local function AddProtectedPlayer(player)
     if not player or player == LocalPlayer then return false end
     local name = player.Name
-    if not ProtectedPlayersSet[name] then
-        ProtectedPlayersSet[name] = true
-        table.insert(ProtectedPlayers, name)
-        Settings.ProtectedPlayers = ProtectedPlayers
-        SaveSettings()
-        return true
+    local userId = player.UserId
+    if ProtectedPlayersSet[name] or ProtectedPlayersSet[userId] then
+        return false
     end
-    return false
+    table.insert(ProtectedPlayers, {Name = name, UserId = userId})
+    ProtectedPlayersSet[name] = true
+    ProtectedPlayersSet[userId] = true
+    Settings.ProtectedPlayers = ProtectedPlayers
+    SaveSettings()
+    return true
 end
 
 local function RemoveProtectedPlayer(player)
     if not player then return false end
     local name = player.Name
-    if ProtectedPlayersSet[name] then
-        ProtectedPlayersSet[name] = nil
-        for i, v in ipairs(ProtectedPlayers) do
-            if v == name then
-                table.remove(ProtectedPlayers, i)
-                Settings.ProtectedPlayers = ProtectedPlayers
-                SaveSettings()
-                return true
-            end
+    local userId = player.UserId
+    local removed = false
+    for i = #ProtectedPlayers, 1, -1 do
+        local entry = ProtectedPlayers[i]
+        local match = false
+        if type(entry) == "table" then
+            match = (entry.Name == name) or (entry.UserId == userId)
+        else
+            match = (entry == name)
+        end
+        if match then
+            table.remove(ProtectedPlayers, i)
+            removed = true
         end
     end
-    return false
+    if removed then
+        ProtectedPlayersSet[name] = nil
+        ProtectedPlayersSet[userId] = nil
+        Settings.ProtectedPlayers = ProtectedPlayers
+        SaveSettings()
+    end
+    return removed
 end
 
 local function IsProtected(player)
     if not player then return false end
     if player == LocalPlayer then return true end
     return ProtectedPlayersSet[player.Name] == true
+        or ProtectedPlayersSet[player.UserId] == true
 end
 
 -- ============================================
@@ -374,7 +527,7 @@ local function AttachToPlayer(targetPlayer)
     AttachActive = true
     humanoid.PlatformStand = true
     humanoid.WalkSpeed = 0
-    AttachConnection = RunService.RenderStepped:Connect(function()
+    AttachConnection = Track(RunService.RenderStepped:Connect(function()
         if not AttachActive then return end
         if not AttachTargetPlayer or not AttachTargetPlayer.Character then DetachFromPlayer() return end
         local tHrp = AttachTargetPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -387,7 +540,7 @@ local function AttachToPlayer(targetPlayer)
         local targetCF = tHrp.CFrame
         if Settings.AttachLockRotation then myHrp.CFrame = targetCF * offset
         else myHrp.CFrame = CFrame.new(targetCF * offset) * (myHrp.CFrame - myHrp.CFrame.Position) end
-    end)
+    end))
     print("🔗 Attached to " .. targetPlayer.Name)
     if SaveStatusLabel then
         SaveStatusLabel.Text = "🔗 Attached to " .. targetPlayer.Name
@@ -435,37 +588,50 @@ local function ToggleAttach()
 end
 
 -- ============================================
--- RAPID FIRE
+-- RAPID FIRE + SUPER FAST SHOOT
 -- ============================================
 
 local RapidFireRunning = false
 local RapidFireConnection = nil
 local RapidFireLastFireTime = 0
 
+local SuperFastRunning = false
+local SuperFastConnection = nil
+
+-- FireGun: sends a full mouse click (down + up) at the current mouse position.
+-- Using VirtualInputManager with the real mouse position makes it register in
+-- more games than the old (0,0) version.
 local function FireGun()
     pcall(function()
-        VirtualInputManager:SendMouseButtonEvent(Vector2.new(0, 0), 0, true, Enum.UserInputType.MouseButton1, 0)
-        VirtualInputManager:SendMouseButtonEvent(Vector2.new(0, 0), 0, false, Enum.UserInputType.MouseButton1, 0)
+        local mousePos = UserInputService:GetMouseLocation()
+        VirtualInputManager:SendMouseButtonEvent(mousePos.X, mousePos.Y, 0, true, game, 0)
+        VirtualInputManager:SendMouseButtonEvent(mousePos.X, mousePos.Y, 0, false, game, 0)
     end)
 end
 
+-- Rapid Fire: fires at a set interval (delay in ms). At 0ms it fires every Heartbeat.
 local function StartRapidFire()
     if RapidFireRunning then return end
     if not getgenv().RapidFireEnabled then return end
     RapidFireRunning = true
     RapidFireLastFireTime = 0
-    print("🔫 Rapid Fire ENABLED")
-    local fireDelay = getgenv().RapidFireDelay or 0.05
-    RapidFireConnection = RunService.Heartbeat:Connect(function()
+    local fireDelay = getgenv().RapidFireDelay or 0
+    print("🔫 Rapid Fire ENABLED (delay: " .. math.floor(fireDelay * 1000) .. "ms)")
+    RapidFireConnection = Track(RunService.Heartbeat:Connect(function()
         if not getgenv().RapidFireEnabled then StopRapidFire() return end
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            local t = tick()
-            if t - RapidFireLastFireTime >= fireDelay then
+            -- If delay is 0, fire every heartbeat (no throttle)
+            if fireDelay <= 0 then
                 FireGun()
-                RapidFireLastFireTime = t
+            else
+                local t = tick()
+                if t - RapidFireLastFireTime >= fireDelay then
+                    FireGun()
+                    RapidFireLastFireTime = t
+                end
             end
         end
-    end)
+    end))
 end
 
 local function StopRapidFire()
@@ -475,6 +641,30 @@ local function StopRapidFire()
     end
     RapidFireRunning = false
     print("🔫 Rapid Fire DISABLED")
+end
+
+-- Super Fast Shoot: fires on EVERY RenderStepped frame (matches FPS).
+-- This is the absolute maximum fire rate the engine will allow.
+local function StartSuperFastShoot()
+    if SuperFastRunning then return end
+    if not getgenv().SuperFastShootEnabled then return end
+    SuperFastRunning = true
+    print("⚡ Super Fast Shoot ENABLED (every frame)")
+    SuperFastConnection = Track(RunService.RenderStepped:Connect(function()
+        if not getgenv().SuperFastShootEnabled then StopSuperFastShoot() return end
+        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+            FireGun()
+        end
+    end))
+end
+
+local function StopSuperFastShoot()
+    if SuperFastConnection then
+        SuperFastConnection:Disconnect()
+        SuperFastConnection = nil
+    end
+    SuperFastRunning = false
+    print("⚡ Super Fast Shoot DISABLED")
 end
 
 -- ============================================
@@ -694,7 +884,7 @@ end
 
 local function StartESP()
     if ESPConnection then return end
-    ESPConnection = RunService.RenderStepped:Connect(UpdateAllESP)
+    ESPConnection = Track(RunService.RenderStepped:Connect(UpdateAllESP))
 end
 
 local function StopESP()
@@ -741,6 +931,8 @@ local KeybindButtons = {}
 local AimbotTabButtons = {}
 local MiscTabButtons = {}
 local ESPToggleBtnRef = nil
+local SnapAimBtnRef = nil
+local SuperFastBtnRef = nil
 
 -- ============================================
 -- UPDATE FUNCTIONS
@@ -892,6 +1084,24 @@ local function UpdateAllTabButtons()
         MiscTabButtons["RapidFire"].TextColor3 = on and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
         MiscTabButtons["RapidFire"].BorderColor3 = on and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(0, 255, 150)
     end
+    if SuperFastBtnRef then
+        local on = getgenv().SuperFastShootEnabled
+        SuperFastBtnRef.Text = "⚡ Super Fast Shoot: " .. (on and "ON" or "OFF")
+        SuperFastBtnRef.TextColor3 = on and Color3.fromRGB(255, 0, 255) or Color3.fromRGB(0, 255, 150)
+        SuperFastBtnRef.BorderColor3 = on and Color3.fromRGB(255, 0, 255) or Color3.fromRGB(0, 255, 150)
+    end
+    if MiscTabButtons["WallBang"] then
+        local on = getgenv().WallBangEnabled
+        MiscTabButtons["WallBang"].Text = "🧱 Shoot Through Walls: " .. (on and "ON" or "OFF")
+        MiscTabButtons["WallBang"].TextColor3 = on and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
+        MiscTabButtons["WallBang"].BorderColor3 = on and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
+    end
+    if SnapAimBtnRef then
+        local on = getgenv().SnapAimEnabled
+        SnapAimBtnRef.Text = "⚡ Snap Aim (Hard Lock): " .. (on and "ON" or "OFF")
+        SnapAimBtnRef.TextColor3 = on and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
+        SnapAimBtnRef.BorderColor3 = on and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
+    end
     if ESPToggleBtnRef then
         ESPToggleBtnRef.Text = "👁️ ESP: " .. (Settings.ESPEnabled and "ON" or "OFF")
         ESPToggleBtnRef.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
@@ -903,7 +1113,7 @@ local function UpdateKeybindLabels()
     for action, button in pairs(KeybindButtons) do
         if button then
             local key = Keybinds[action]
-            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
+            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("WallBang", "WallBang"):gsub("SnapAim", "Snap Aim"):gsub("SuperFast", "Super Fast")
             button.Text = displayName .. ": " .. (key and KeyCodeToString(key) or "None")
         end
     end
@@ -986,11 +1196,38 @@ local function ToggleRapidFire()
     end
 end
 
+local function ToggleSuperFastShoot()
+    getgenv().SuperFastShootEnabled = not getgenv().SuperFastShootEnabled
+    Settings.SuperFastShootEnabled = getgenv().SuperFastShootEnabled
+    SaveSettings()
+    if getgenv().SuperFastShootEnabled then StartSuperFastShoot() else StopSuperFastShoot() end
+    UpdateAllTabButtons()
+    if SaveStatusLabel then
+        SaveStatusLabel.Text = "⚡ Super Fast Shoot " .. (getgenv().SuperFastShootEnabled and "ON" or "OFF")
+        SaveStatusLabel.TextColor3 = getgenv().SuperFastShootEnabled and Color3.fromRGB(255, 0, 255) or Color3.fromRGB(255, 100, 100)
+        SaveStatusLabel.Visible = true
+        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+    end
+end
+
+local function ToggleSnapAim()
+    getgenv().SnapAimEnabled = not getgenv().SnapAimEnabled
+    Settings.SnapAimEnabled = getgenv().SnapAimEnabled
+    SaveSettings()
+    UpdateAllTabButtons()
+    if SaveStatusLabel then
+        SaveStatusLabel.Text = "⚡ Snap Aim " .. (getgenv().SnapAimEnabled and "ON" or "OFF")
+        SaveStatusLabel.TextColor3 = getgenv().SnapAimEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(255, 100, 100)
+        SaveStatusLabel.Visible = true
+        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+    end
+end
+
 -- ============================================
 -- KEYBIND HANDLER
 -- ============================================
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
+Track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed and not WaitingForKeybind then return end
     if gameProcessed and WaitingForKeybind and input.UserInputType ~= Enum.UserInputType.Keyboard then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
@@ -1005,7 +1242,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if key == Enum.KeyCode.RightShift then
             print("❌ Cannot bind Right Shift")
             if button then
-                local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
+                local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("WallBang", "WallBang"):gsub("SnapAim", "Snap Aim"):gsub("SuperFast", "Super Fast")
                 button.Text = displayName .. ": " .. (Keybinds[action] and KeyCodeToString(Keybinds[action]) or "None")
                 button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
             end
@@ -1018,7 +1255,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         Settings["Keybind_" .. action] = KeyCodeToString(key)
         SaveSettings()
         if button then
-            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
+            local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("WallBang", "WallBang"):gsub("SnapAim", "Snap Aim"):gsub("SuperFast", "Super Fast")
             button.Text = displayName .. ": " .. KeyCodeToString(key)
             button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
         end
@@ -1054,9 +1291,21 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         KeybindDebounce.ToggleRapidFire = true ToggleRapidFire()
         task.delay(0.2, function() KeybindDebounce.ToggleRapidFire = false end) return
     end
+    if Keybinds.ToggleSuperFast and input.KeyCode == Keybinds.ToggleSuperFast and not KeybindDebounce.ToggleSuperFast then
+        KeybindDebounce.ToggleSuperFast = true ToggleSuperFastShoot()
+        task.delay(0.3, function() KeybindDebounce.ToggleSuperFast = false end) return
+    end
     if Keybinds.ToggleAttach and input.KeyCode == Keybinds.ToggleAttach and not KeybindDebounce.ToggleAttach then
         KeybindDebounce.ToggleAttach = true ToggleAttach()
         task.delay(0.3, function() KeybindDebounce.ToggleAttach = false end) return
+    end
+    if Keybinds.ToggleWallBang and input.KeyCode == Keybinds.ToggleWallBang and not KeybindDebounce.ToggleWallBang then
+        KeybindDebounce.ToggleWallBang = true ToggleWallBang()
+        task.delay(0.3, function() KeybindDebounce.ToggleWallBang = false end) return
+    end
+    if Keybinds.ToggleSnapAim and input.KeyCode == Keybinds.ToggleSnapAim and not KeybindDebounce.ToggleSnapAim then
+        KeybindDebounce.ToggleSnapAim = true ToggleSnapAim()
+        task.delay(0.3, function() KeybindDebounce.ToggleSnapAim = false end) return
     end
     if Keybinds.TeleportToTarget and input.KeyCode == Keybinds.TeleportToTarget and lockedTarget and not KeybindDebounce.TeleportToTarget then
         KeybindDebounce.TeleportToTarget = true TeleportToPlayer(lockedTarget)
@@ -1066,35 +1315,142 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         KeybindDebounce.BringTarget = true BringPlayer(lockedTarget)
         task.delay(0.3, function() KeybindDebounce.BringTarget = false end) return
     end
-end)
+end))
 
 -- ============================================
--- GO LEGIT
+-- GO LEGIT — FULLY REMOVES THE SCRIPT
 -- ============================================
 
 local function GoLegit()
-    print("Going legit...")
-    DetachFromPlayer()
-    local char = LocalPlayer.Character
-    if char and char:FindFirstChild("Humanoid") then char.Humanoid.PlatformStand = false end
-    if char then
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = true end
-        end
-    end
+    print("🧹 Going legit — removing script completely...")
+
     getgenv().AimbotEnabled = false
     getgenv().FlyEnabled = false
     getgenv().NoclipEnabled = false
     getgenv().RapidFireEnabled = false
-    Settings.ESPEnabled = false
-    StopRapidFire()
-    StopESP()
-    SaveSettings()
-    if ScreenGui then pcall(function() ScreenGui:Destroy() end) ScreenGui = nil end
-    if FOVCircle then pcall(function() FOVCircle:Destroy() end) FOVCircle = nil end
-    CleanupAllESP()
-    ScriptLoaded = false
-    print("FRShYHub V1 Unloaded!")
+    getgenv().WallBangEnabled = false
+    getgenv().SnapAimEnabled = false
+    getgenv().ESPEnabled = false
+    getgenv().SuperFastShootEnabled = false
+
+    pcall(function()
+        if AttachConnection then AttachConnection:Disconnect() AttachConnection = nil end
+        AttachActive = false
+        AttachTargetPlayer = nil
+        local char = LocalPlayer.Character
+        if char then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if humanoid then
+                humanoid.PlatformStand = false
+                humanoid.WalkSpeed = OriginalWalkSpeed or 16
+                if humanoid.UseJumpPower then humanoid.JumpPower = OriginalJumpPower or 50
+                else humanoid.JumpHeight = OriginalJumpHeight or 7.2 end
+            end
+            if hrp then
+                hrp.Anchored = false
+                hrp.Velocity = Vector3.new(0, 0, 0)
+            end
+        end
+    end)
+
+    pcall(function()
+        if WallBangActive then
+            for obj, originalState in pairs(WallBangOriginalStates) do
+                pcall(function()
+                    if obj and obj.Parent then
+                        obj.CanQuery = originalState
+                    end
+                end)
+            end
+            WallBangOriginalStates = {}
+            WallBangActive = false
+        end
+    end)
+
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end)
+
+    pcall(function()
+        if RapidFireConnection then RapidFireConnection:Disconnect() RapidFireConnection = nil end
+        RapidFireRunning = false
+        if SuperFastConnection then SuperFastConnection:Disconnect() SuperFastConnection = nil end
+        SuperFastRunning = false
+    end)
+
+    pcall(function()
+        if ESPConnection then ESPConnection:Disconnect() ESPConnection = nil end
+        for _, drawings in pairs(ESPDrawings) do
+            for _, drawing in pairs(drawings) do
+                pcall(function() drawing:Remove() end)
+            end
+        end
+        ESPDrawings = {}
+    end)
+
+    pcall(function() DisconnectAll() end)
+
+    pcall(function()
+        if ScreenGui then ScreenGui:Destroy() ScreenGui = nil end
+        if MainFrame then MainFrame:Destroy() MainFrame = nil end
+        if FOVCircle then FOVCircle:Destroy() FOVCircle = nil end
+        if FOVCorner then FOVCorner:Destroy() FOVCorner = nil end
+        if PlayerListFrame then PlayerListFrame:Destroy() PlayerListFrame = nil end
+        if TeleportListFrame then TeleportListFrame:Destroy() TeleportListFrame = nil end
+        if BringListFrame then BringListFrame:Destroy() BringListFrame = nil end
+        if ProtectedCountLabel then ProtectedCountLabel:Destroy() ProtectedCountLabel = nil end
+        if SaveStatusLabel then SaveStatusLabel:Destroy() SaveStatusLabel = nil end
+        if RenameTextBox then RenameTextBox:Destroy() RenameTextBox = nil end
+        if FriendSearchBar then FriendSearchBar:Destroy() FriendSearchBar = nil end
+        if TeleportSearchBar then TeleportSearchBar:Destroy() TeleportSearchBar = nil end
+        if BringSearchBar then BringSearchBar:Destroy() BringSearchBar = nil end
+        if ESPToggleBtnRef then ESPToggleBtnRef:Destroy() ESPToggleBtnRef = nil end
+        if SnapAimBtnRef then SnapAimBtnRef:Destroy() SnapAimBtnRef = nil end
+        if SuperFastBtnRef then SuperFastBtnRef:Destroy() SuperFastBtnRef = nil end
+    end)
+
+    PlayerButtons = {}
+    TeleportButtons = {}
+    BringButtons = {}
+    TabButtons = {}
+    TabContents = {}
+    KeybindButtons = {}
+    AimbotTabButtons = {}
+    MiscTabButtons = {}
+    SlotButtons = {}
+
+    pcall(function()
+        local globalsToClear = {
+            "AimbotEnabled", "TeamCheck", "WallCheck", "AimFOV", "Smoothness",
+            "ShowFOV", "FlyEnabled", "NoclipEnabled", "FlySpeed", "Prediction",
+            "AimLockStrength", "FriendProtection", "RapidFireEnabled", "RapidFireDelay",
+            "ESPEnabled", "ESPBox", "ESPName", "ESPHealth", "ESPDistance",
+            "ESPSkeleton", "ESPTeamCheck", "ESPFriendCheck", "ESPColorMode",
+            "ESPCustomColor", "ESPBoxThickness", "ESPTextSize", "ESPShowLocal",
+            "WallBangEnabled", "SnapAimEnabled", "SuperFastShootEnabled",
+            "UpdateAttachStatus", "UpdateAttachList"
+        }
+        for _, name in ipairs(globalsToClear) do
+            pcall(function() getgenv()[name] = nil end)
+        end
+    end)
+
+    Settings = nil
+    Keybinds = nil
+    KeybindDebounce = nil
+    ProtectedPlayers = nil
+    ProtectedPlayersSet = nil
+    WallBangOriginalStates = nil
+
+    print("✅ FRShYHub V1 completely removed. No traces left.")
 end
 
 -- ============================================
@@ -1266,10 +1622,24 @@ local function CreateGUI()
     CreateAimbotSlider("Prediction", 200, 0, 50, function() return getgenv().Prediction * 100 end, function(v) getgenv().Prediction = v / 100 end)
     CreateAimbotSlider("Lock Strength", 245, 1, 100, function() return getgenv().AimLockStrength * 100 end, function(v) getgenv().AimLockStrength = v / 100 end)
 
+    SnapAimBtnRef = Instance.new("TextButton")
+    SnapAimBtnRef.Name = "SnapAimBtn"
+    SnapAimBtnRef.Size = UDim2.new(1, 0, 0, 32)
+    SnapAimBtnRef.Position = UDim2.new(0, 0, 0, 290)
+    SnapAimBtnRef.Text = "⚡ Snap Aim (Hard Lock): " .. (getgenv().SnapAimEnabled and "ON" or "OFF")
+    SnapAimBtnRef.TextColor3 = getgenv().SnapAimEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
+    SnapAimBtnRef.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    SnapAimBtnRef.Font = Enum.Font.GothamBold
+    SnapAimBtnRef.TextSize = 13
+    SnapAimBtnRef.BorderSizePixel = 2
+    SnapAimBtnRef.BorderColor3 = getgenv().SnapAimEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
+    SnapAimBtnRef.Parent = AimbotTab
+    SnapAimBtnRef.MouseButton1Click:Connect(ToggleSnapAim)
+
     local GoLegitBtn = Instance.new("TextButton")
     GoLegitBtn.Size = UDim2.new(1, 0, 0, 35)
-    GoLegitBtn.Position = UDim2.new(0, 0, 0, 295)
-    GoLegitBtn.Text = "🎯 GO LEGIT"
+    GoLegitBtn.Position = UDim2.new(0, 0, 0, 327)
+    GoLegitBtn.Text = "🧹 GO LEGIT (Remove Script)"
     GoLegitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     GoLegitBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
     GoLegitBtn.Font = Enum.Font.GothamBold
@@ -1556,7 +1926,7 @@ local function CreateGUI()
     KeybindInfo.TextSize = 11
     KeybindInfo.Parent = KeybindsTab
 
-    local keybindActions = {"ToggleAimbot","ToggleFly","ToggleNoclip","ToggleESP","TeleportToTarget","BringTarget","ToggleRapidFire","ToggleAttach"}
+    local keybindActions = {"ToggleAimbot","ToggleFly","ToggleNoclip","ToggleESP","TeleportToTarget","BringTarget","ToggleRapidFire","ToggleAttach","ToggleWallBang","ToggleSnapAim","ToggleSuperFast"}
     local keyY = 25
     for _, action in ipairs(keybindActions) do
         local Container = Instance.new("Frame")
@@ -1569,7 +1939,7 @@ local function CreateGUI()
         local Label = Instance.new("TextLabel")
         Label.Size = UDim2.new(0.4, 0, 1, 0)
         Label.Position = UDim2.new(0, 5, 0, 0)
-        local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire")
+        local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("WallBang", "WallBang"):gsub("SnapAim", "Snap Aim"):gsub("SuperFast", "Super Fast")
         Label.Text = displayName
         Label.TextColor3 = Color3.fromRGB(200, 200, 200)
         Label.BackgroundTransparency = 1
@@ -1894,14 +2264,44 @@ local function CreateGUI()
     RapidFireBtn.MouseButton1Click:Connect(ToggleRapidFire)
     MiscTabButtons["RapidFire"] = RapidFireBtn
 
+    -- SUPER FAST SHOOT BUTTON (NEW)
+    SuperFastBtnRef = Instance.new("TextButton")
+    SuperFastBtnRef.Name = "SuperFastBtn"
+    SuperFastBtnRef.Size = UDim2.new(1, 0, 0, 30)
+    SuperFastBtnRef.Position = UDim2.new(0, 0, 0, 135)
+    SuperFastBtnRef.Text = "⚡ Super Fast Shoot: " .. (getgenv().SuperFastShootEnabled and "ON" or "OFF")
+    SuperFastBtnRef.TextColor3 = getgenv().SuperFastShootEnabled and Color3.fromRGB(255, 0, 255) or Color3.fromRGB(0, 255, 150)
+    SuperFastBtnRef.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    SuperFastBtnRef.Font = Enum.Font.GothamBold
+    SuperFastBtnRef.TextSize = 13
+    SuperFastBtnRef.BorderSizePixel = 2
+    SuperFastBtnRef.BorderColor3 = getgenv().SuperFastShootEnabled and Color3.fromRGB(255, 0, 255) or Color3.fromRGB(0, 255, 150)
+    SuperFastBtnRef.Parent = MiscTab
+    SuperFastBtnRef.MouseButton1Click:Connect(ToggleSuperFastShoot)
+
+    local WallBangBtn = Instance.new("TextButton")
+    WallBangBtn.Name = "WallBangBtn"
+    WallBangBtn.Size = UDim2.new(1, 0, 0, 30)
+    WallBangBtn.Position = UDim2.new(0, 0, 0, 170)
+    WallBangBtn.Text = "🧱 Shoot Through Walls: " .. (getgenv().WallBangEnabled and "ON" or "OFF")
+    WallBangBtn.TextColor3 = getgenv().WallBangEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
+    WallBangBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    WallBangBtn.Font = Enum.Font.GothamBold
+    WallBangBtn.TextSize = 13
+    WallBangBtn.BorderSizePixel = 2
+    WallBangBtn.BorderColor3 = getgenv().WallBangEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
+    WallBangBtn.Parent = MiscTab
+    WallBangBtn.MouseButton1Click:Connect(ToggleWallBang)
+    MiscTabButtons["WallBang"] = WallBangBtn
+
     local RFDelayContainer = Instance.new("Frame")
     RFDelayContainer.Size = UDim2.new(1, 0, 0, 42)
-    RFDelayContainer.Position = UDim2.new(0, 0, 0, 135)
+    RFDelayContainer.Position = UDim2.new(0, 0, 0, 205)
     RFDelayContainer.BackgroundTransparency = 1
     RFDelayContainer.Parent = MiscTab
     local RFDelayLabel = Instance.new("TextLabel")
     RFDelayLabel.Size = UDim2.new(1, 0, 0, 18)
-    RFDelayLabel.Text = "RF Delay (ms): " .. math.floor((getgenv().RapidFireDelay or 0.05) * 1000)
+    RFDelayLabel.Text = "RF Delay (ms): " .. math.floor((getgenv().RapidFireDelay or 0) * 1000)
     RFDelayLabel.TextColor3 = Color3.fromRGB(255, 150, 50)
     RFDelayLabel.BackgroundTransparency = 1
     RFDelayLabel.Font = Enum.Font.Gotham
@@ -1911,7 +2311,7 @@ local function CreateGUI()
     local RFDelaySlider = Instance.new("TextBox")
     RFDelaySlider.Size = UDim2.new(1, 0, 0, 22)
     RFDelaySlider.Position = UDim2.new(0, 0, 0, 20)
-    RFDelaySlider.Text = tostring(math.floor((getgenv().RapidFireDelay or 0.05) * 1000))
+    RFDelaySlider.Text = tostring(math.floor((getgenv().RapidFireDelay or 0) * 1000))
     RFDelaySlider.TextColor3 = Color3.fromRGB(255, 150, 50)
     RFDelaySlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     RFDelaySlider.Font = Enum.Font.Gotham
@@ -1920,19 +2320,19 @@ local function CreateGUI()
     RFDelaySlider.FocusLost:Connect(function()
         local val = tonumber(RFDelaySlider.Text)
         if val then
-            val = math.clamp(val, 20, 200)
+            val = math.clamp(val, 0, 200) -- 0 = every heartbeat, max rate
             getgenv().RapidFireDelay = val / 1000
             RFDelayLabel.Text = "RF Delay (ms): " .. val
             RFDelaySlider.Text = tostring(val)
             Settings.RapidFireDelay = getgenv().RapidFireDelay
             SaveSettings()
             if getgenv().RapidFireEnabled then StopRapidFire() task.wait(0.1) StartRapidFire() end
-        else RFDelaySlider.Text = tostring(math.floor((getgenv().RapidFireDelay or 0.05) * 1000)) end
+        else RFDelaySlider.Text = tostring(math.floor((getgenv().RapidFireDelay or 0) * 1000)) end
     end)
 
     local TeleportLabel = Instance.new("TextLabel")
     TeleportLabel.Size = UDim2.new(1, 0, 0, 18)
-    TeleportLabel.Position = UDim2.new(0, 0, 0, 185)
+    TeleportLabel.Position = UDim2.new(0, 0, 0, 250)
     TeleportLabel.Text = "📍 Teleport"
     TeleportLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
     TeleportLabel.BackgroundTransparency = 1
@@ -1943,7 +2343,7 @@ local function CreateGUI()
 
     TeleportSearchBar = Instance.new("TextBox")
     TeleportSearchBar.Size = UDim2.new(1, 0, 0, 22)
-    TeleportSearchBar.Position = UDim2.new(0, 0, 0, 205)
+    TeleportSearchBar.Position = UDim2.new(0, 0, 0, 270)
     TeleportSearchBar.PlaceholderText = "🔍 Search to teleport..."
     TeleportSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
     TeleportSearchBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
@@ -1958,8 +2358,8 @@ local function CreateGUI()
     end)
 
     TeleportListFrame = Instance.new("ScrollingFrame")
-    TeleportListFrame.Size = UDim2.new(1, 0, 0, 60)
-    TeleportListFrame.Position = UDim2.new(0, 0, 0, 230)
+    TeleportListFrame.Size = UDim2.new(1, 0, 0, 50)
+    TeleportListFrame.Position = UDim2.new(0, 0, 0, 295)
     TeleportListFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 15)
     TeleportListFrame.BorderSizePixel = 1
     TeleportListFrame.BorderColor3 = Color3.fromRGB(0, 150, 255)
@@ -1969,7 +2369,7 @@ local function CreateGUI()
 
     local BringLabel = Instance.new("TextLabel")
     BringLabel.Size = UDim2.new(1, 0, 0, 18)
-    BringLabel.Position = UDim2.new(0, 0, 0, 295)
+    BringLabel.Position = UDim2.new(0, 0, 0, 350)
     BringLabel.Text = "🔄 Bring Players"
     BringLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
     BringLabel.BackgroundTransparency = 1
@@ -1980,7 +2380,7 @@ local function CreateGUI()
 
     BringSearchBar = Instance.new("TextBox")
     BringSearchBar.Size = UDim2.new(1, 0, 0, 22)
-    BringSearchBar.Position = UDim2.new(0, 0, 0, 315)
+    BringSearchBar.Position = UDim2.new(0, 0, 0, 370)
     BringSearchBar.PlaceholderText = "🔍 Search to bring..."
     BringSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
     BringSearchBar.BackgroundColor3 = Color3.fromRGB(30, 20, 5)
@@ -1995,8 +2395,8 @@ local function CreateGUI()
     end)
 
     BringListFrame = Instance.new("ScrollingFrame")
-    BringListFrame.Size = UDim2.new(1, 0, 0, 60)
-    BringListFrame.Position = UDim2.new(0, 0, 0, 340)
+    BringListFrame.Size = UDim2.new(1, 0, 0, 50)
+    BringListFrame.Position = UDim2.new(0, 0, 0, 395)
     BringListFrame.BackgroundColor3 = Color3.fromRGB(10, 5, 0)
     BringListFrame.BorderSizePixel = 1
     BringListFrame.BorderColor3 = Color3.fromRGB(255, 200, 0)
@@ -2300,22 +2700,24 @@ end
 -- PLAYER EVENTS
 -- ============================================
 
-Players.PlayerAdded:Connect(function()
+Track(Players.PlayerAdded:Connect(function(player)
     task.wait(0.5)
     UpdatePlayerList() UpdateTeleportList() UpdateBringList()
     if getgenv().UpdateAttachList then getgenv().UpdateAttachList() end
-end)
+    if IsProtected(player) then
+        print("🛡️ " .. player.Name .. " is still protected (persisted)")
+    end
+end))
 
-Players.PlayerRemoving:Connect(function(player)
-    if ProtectedPlayersSet[player.Name] then RemoveProtectedPlayer(player) end
+Track(Players.PlayerRemoving:Connect(function(player)
     CleanupESP(player)
     if AttachTargetPlayer == player then DetachFromPlayer() end
     task.wait(0.5)
     UpdatePlayerList() UpdateTeleportList() UpdateBringList()
     if getgenv().UpdateAttachList then getgenv().UpdateAttachList() end
-end)
+end))
 
-LocalPlayer.CharacterAdded:Connect(function(char)
+Track(LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(0.5)
     noclipActive = false
     flyRunning = false
@@ -2326,11 +2728,18 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     if getgenv().RapidFireEnabled then
         StopRapidFire() task.wait(0.1) StartRapidFire()
     end
+    if getgenv().SuperFastShootEnabled then
+        StopSuperFastShoot() task.wait(0.1) StartSuperFastShoot()
+    end
     if Settings.ESPEnabled then
         CleanupAllESP() task.wait(0.2) StartESP()
     end
+    if getgenv().WallBangEnabled and not WallBangActive then
+        task.wait(0.5)
+        EnableWallBang()
+    end
     if getgenv().UpdateAttachList then getgenv().UpdateAttachList() end
-end)
+end))
 
 -- ============================================
 -- FLY / NOCLIP
@@ -2428,6 +2837,7 @@ local function GetBestTarget()
     local mousePos = UserInputService:GetMouseLocation()
     local fov = getgenv().AimFOV
     local wallCheck = getgenv().WallCheck
+    if getgenv().WallBangEnabled then wallCheck = false end
     if lockedTarget and IsValidTarget(lockedTarget) then
         local targetPos = GetTargetPosition(lockedTarget)
         if targetPos then
@@ -2435,7 +2845,11 @@ local function GetBestTarget()
                 local screenPos, onScreen = Camera:WorldToViewportPoint(targetPos)
                 if onScreen then
                     local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                    if dist < fov * 1.5 then
+                    local maxTrackDist = fov * 1.5
+                    if getgenv().SnapAimEnabled or getgenv().AimLockStrength >= 0.95 then
+                        maxTrackDist = fov * 3
+                    end
+                    if dist < maxTrackDist then
                         return {Position = targetPos, ScreenPos = screenPos, Player = lockedTarget, ScreenX = screenPos.X, ScreenY = screenPos.Y}
                     else lockedTarget = nil end
                 end
@@ -2473,7 +2887,7 @@ end
 -- MAIN LOOP
 -- ============================================
 
-RunService.RenderStepped:Connect(function()
+Track(RunService.RenderStepped:Connect(function()
     if FOVCircle then
         local size = getgenv().AimFOV * 2
         FOVCircle.Size = UDim2.new(0, size, 0, size)
@@ -2487,27 +2901,48 @@ RunService.RenderStepped:Connect(function()
     end
     Fly()
     Noclip()
+
     if getgenv().AimbotEnabled then
         local target = GetBestTarget()
         if target and target.ScreenPos then
             local mousePos = UserInputService:GetMouseLocation()
             local deltaX = target.ScreenX - mousePos.X
             local deltaY = target.ScreenY - mousePos.Y
+
             local lockStrength = getgenv().AimLockStrength or 1.0
             local smoothness = getgenv().Smoothness or 100
-            local smoothFactor = smoothness / 100
-            local baseFactor = 1 - (smoothFactor * 0.95)
-            local effectiveFactor = baseFactor * (1 + (lockStrength - 0.5) * 0.5)
-            effectiveFactor = math.clamp(effectiveFactor, 0.03, 1)
-            local moveX = deltaX * effectiveFactor
-            local moveY = deltaY * effectiveFactor
-            local distance = math.sqrt(deltaX^2 + deltaY^2)
-            if distance > 100 then moveX = moveX * 1.5 moveY = moveY * 1.5
-            elseif distance < 5 then mousemoverel(deltaX * 0.9, deltaY * 0.9) return end
-            if math.abs(deltaX) > 0.1 or math.abs(deltaY) > 0.1 then mousemoverel(moveX, moveY) end
-        else lockedTarget = nil end
-    else lockedTarget = nil end
-end)
+
+            local hardLock = getgenv().SnapAimEnabled or (lockStrength >= 0.95)
+
+            if hardLock then
+                if math.abs(deltaX) > 0.05 or math.abs(deltaY) > 0.05 then
+                    mousemoverel(deltaX, deltaY)
+                end
+            else
+                local smoothFactor = smoothness / 100
+                local strengthFactor = 0.03 + (lockStrength * 0.97)
+                local effectiveFactor = strengthFactor * (1 - smoothFactor * 0.97)
+                effectiveFactor = math.clamp(effectiveFactor, 0.03, 1.0)
+
+                local moveX = deltaX * effectiveFactor
+                local moveY = deltaY * effectiveFactor
+
+                if math.abs(deltaX) < 2 and math.abs(deltaY) < 2 then
+                    moveX = deltaX
+                    moveY = deltaY
+                end
+
+                if math.abs(moveX) > 0.01 or math.abs(moveY) > 0.01 then
+                    mousemoverel(moveX, moveY)
+                end
+            end
+        else
+            lockedTarget = nil
+        end
+    else
+        lockedTarget = nil
+    end
+end))
 
 -- ============================================
 -- INITIALIZE
@@ -2523,5 +2958,24 @@ if Settings.ESPEnabled then
     StartESP()
 end
 
+if getgenv().WallBangEnabled then
+    task.wait(0.5)
+    EnableWallBang()
+end
+
+if getgenv().RapidFireEnabled then
+    task.wait(0.5)
+    StartRapidFire()
+end
+
+if getgenv().SuperFastShootEnabled then
+    task.wait(0.5)
+    StartSuperFastShoot()
+end
+
 print("✅ FRShYHub V1 Loaded!")
 print("🔒 Right Shift - Show/Hide GUI")
+print("🧱 Misc tab → Shoot Through Walls")
+print("⚡ Aimbot tab → Snap Aim (Hard Lock) for max lock-on")
+print("🧹 Aimbot tab → GO LEGIT (Remove Script) to fully unload")
+print("⚡ Misc tab → Super Fast Shoot (every frame) — the fastest fire rate possible")
