@@ -5,6 +5,8 @@
     + MAX LOCK STRENGTH (100 = HARD LOCK-ON)
     + GO LEGIT FULLY REMOVES SCRIPT
     + RAPID FIRE 0MS + SUPER FAST SHOOT (EVERY FRAME)
+    + ALL KEYBINDS ARE TOGGLES
+    + RAPID FIRE 0MS NOW FIRES 30 SHOTS PER FRAME (CLEAN TOGGLE)
 ]]
 
 local function WaitForGame()
@@ -55,9 +57,9 @@ local Keybinds = {
 
 local KeybindDebounce = {
     ToggleAimbot = false, ToggleFly = false, ToggleNoclip = false,
-    TeleportToTarget = false, BringTarget = false, ToggleRapidFire = false,
-    ToggleESP = false, ToggleAttach = false, ToggleWallBang = false, ToggleSnapAim = false,
-    ToggleSuperFast = false
+    TeleportToTarget = false, BringTarget = false,
+    ToggleRapidFire = false, ToggleESP = false, ToggleAttach = false,
+    ToggleWallBang = false, ToggleSnapAim = false, ToggleSuperFast = false
 }
 
 -- ============================================
@@ -169,12 +171,6 @@ local function EnableWallBang()
         end
     end
     print("🔫 WallBang ENABLED")
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "🔫 WallBang ON"
-        SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
 end
 
 local function DisableWallBang()
@@ -189,21 +185,15 @@ local function DisableWallBang()
     end
     WallBangOriginalStates = {}
     print("🔫 WallBang DISABLED")
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "🔫 WallBang OFF"
-        SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
 end
 
-local function ToggleWallBang()
-    if WallBangActive then
-        DisableWallBang()
-        getgenv().WallBangEnabled = false
-    else
-        EnableWallBang()
+local function SetWallBang(state)
+    if state then
+        if not WallBangActive then EnableWallBang() end
         getgenv().WallBangEnabled = true
+    else
+        if WallBangActive then DisableWallBang() end
+        getgenv().WallBangEnabled = false
     end
     Settings.WallBangEnabled = getgenv().WallBangEnabled
     SaveSettings()
@@ -335,8 +325,6 @@ local function LoadFromSlot(slotNumber)
     if UpdateFOVCircle then UpdateFOVCircle() end
     if UpdateKeybindLabels then UpdateKeybindLabels() end
     if UpdateAllTabButtons then UpdateAllTabButtons() end
-    if Settings.WallBangEnabled and not WallBangActive then EnableWallBang()
-    elseif not Settings.WallBangEnabled and WallBangActive then DisableWallBang() end
     return true
 end
 
@@ -384,9 +372,7 @@ local function AddProtectedPlayer(player)
     if not player or player == LocalPlayer then return false end
     local name = player.Name
     local userId = player.UserId
-    if ProtectedPlayersSet[name] or ProtectedPlayersSet[userId] then
-        return false
-    end
+    if ProtectedPlayersSet[name] or ProtectedPlayersSet[userId] then return false end
     table.insert(ProtectedPlayers, {Name = name, UserId = userId})
     ProtectedPlayersSet[name] = true
     ProtectedPlayersSet[userId] = true
@@ -498,12 +484,6 @@ local function DetachFromPlayer()
         if hrp then hrp.Anchored = false hrp.Velocity = Vector3.new(0, 0, 0) end
     end
     print("🔗 Detached from player")
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "🔗 Detached"
-        SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 150, 50)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
     if UpdateAllTabButtons then UpdateAllTabButtons() end
     if getgenv().UpdateAttachStatus then getgenv().UpdateAttachStatus() end
     if getgenv().UpdateAttachList then getgenv().UpdateAttachList() end
@@ -542,12 +522,6 @@ local function AttachToPlayer(targetPlayer)
         else myHrp.CFrame = CFrame.new(targetCF * offset) * (myHrp.CFrame - myHrp.CFrame.Position) end
     end))
     print("🔗 Attached to " .. targetPlayer.Name)
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "🔗 Attached to " .. targetPlayer.Name
-        SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 200)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
     if UpdateAllTabButtons then UpdateAllTabButtons() end
     if getgenv().UpdateAttachStatus then getgenv().UpdateAttachStatus() end
     if getgenv().UpdateAttachList then getgenv().UpdateAttachList() end
@@ -575,58 +549,63 @@ local function ToggleAttach()
             target = closest
         end
         if target then AttachToPlayer(target)
-        else
-            print("❌ No valid player nearby")
-            if SaveStatusLabel then
-                SaveStatusLabel.Text = "❌ No target found"
-                SaveStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-                SaveStatusLabel.Visible = true
-                task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-            end
-        end
+        else print("❌ No valid player nearby") end
     end
 end
 
 -- ============================================
 -- RAPID FIRE + SUPER FAST SHOOT
+-- *** MODIFIED: 30-shot burst + clean toggle ***
 -- ============================================
 
 local RapidFireRunning = false
 local RapidFireConnection = nil
 local RapidFireLastFireTime = 0
+local RapidFireBursting = false
 
 local SuperFastRunning = false
 local SuperFastConnection = nil
 
--- FireGun: sends a full mouse click (down + up) at the current mouse position.
--- Using VirtualInputManager with the real mouse position makes it register in
--- more games than the old (0,0) version.
-local function FireGun()
-    pcall(function()
-        local mousePos = UserInputService:GetMouseLocation()
-        VirtualInputManager:SendMouseButtonEvent(mousePos.X, mousePos.Y, 0, true, game, 0)
-        VirtualInputManager:SendMouseButtonEvent(mousePos.X, mousePos.Y, 0, false, game, 0)
-    end)
+-- How many shots to fire per burst when delay is 0
+local RAPID_FIRE_BURST_COUNT = 30
+
+local function FireGunOnce()
+    local mousePos = UserInputService:GetMouseLocation()
+    VirtualInputManager:SendMouseButtonEvent(mousePos.X, mousePos.Y, 0, true, game, 0)
+    VirtualInputManager:SendMouseButtonEvent(mousePos.X, mousePos.Y, 0, false, game, 0)
 end
 
--- Rapid Fire: fires at a set interval (delay in ms). At 0ms it fires every Heartbeat.
+local function FireGun()
+    pcall(FireGunOnce)
+end
+
+local function FireBurst(count)
+    if RapidFireBursting then return end
+    RapidFireBursting = true
+    for i = 1, count do
+        FireGunOnce()
+    end
+    RapidFireBursting = false
+end
+
 local function StartRapidFire()
     if RapidFireRunning then return end
     if not getgenv().RapidFireEnabled then return end
     RapidFireRunning = true
     RapidFireLastFireTime = 0
+    RapidFireBursting = false
     local fireDelay = getgenv().RapidFireDelay or 0
-    print("🔫 Rapid Fire ENABLED (delay: " .. math.floor(fireDelay * 1000) .. "ms)")
+    print("🔫 Rapid Fire ENABLED (delay: " .. math.floor(fireDelay * 1000) .. "ms, burst: " .. RAPID_FIRE_BURST_COUNT .. ")")
     RapidFireConnection = Track(RunService.Heartbeat:Connect(function()
+        if not RapidFireRunning then return end
         if not getgenv().RapidFireEnabled then StopRapidFire() return end
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            -- If delay is 0, fire every heartbeat (no throttle)
             if fireDelay <= 0 then
-                FireGun()
+                FireBurst(RAPID_FIRE_BURST_COUNT)
             else
                 local t = tick()
                 if t - RapidFireLastFireTime >= fireDelay then
-                    FireGun()
+                    FireBurst(RAPID_FIRE_BURST_COUNT)
                     RapidFireLastFireTime = t
                 end
             end
@@ -635,22 +614,22 @@ local function StartRapidFire()
 end
 
 local function StopRapidFire()
+    RapidFireRunning = false
+    RapidFireBursting = false
     if RapidFireConnection then
         RapidFireConnection:Disconnect()
         RapidFireConnection = nil
     end
-    RapidFireRunning = false
     print("🔫 Rapid Fire DISABLED")
 end
 
--- Super Fast Shoot: fires on EVERY RenderStepped frame (matches FPS).
--- This is the absolute maximum fire rate the engine will allow.
 local function StartSuperFastShoot()
     if SuperFastRunning then return end
     if not getgenv().SuperFastShootEnabled then return end
     SuperFastRunning = true
     print("⚡ Super Fast Shoot ENABLED (every frame)")
     SuperFastConnection = Track(RunService.RenderStepped:Connect(function()
+        if not SuperFastRunning then return end
         if not getgenv().SuperFastShootEnabled then StopSuperFastShoot() return end
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
             FireGun()
@@ -659,11 +638,11 @@ local function StartSuperFastShoot()
 end
 
 local function StopSuperFastShoot()
+    SuperFastRunning = false
     if SuperFastConnection then
         SuperFastConnection:Disconnect()
         SuperFastConnection = nil
     end
-    SuperFastRunning = false
     print("⚡ Super Fast Shoot DISABLED")
 end
 
@@ -897,6 +876,15 @@ local function StopESP()
     end
 end
 
+local function SetESP(state)
+    Settings.ESPEnabled = state
+    getgenv().ESPEnabled = state
+    SaveSettings()
+    if state then StartESP() print("👁️ ESP ENABLED")
+    else StopESP() print("👁️ ESP DISABLED") end
+    UpdateAllTabButtons()
+end
+
 -- ============================================
 -- VARIABLES
 -- ============================================
@@ -1073,11 +1061,23 @@ local function UpdateFOVCircle()
 end
 
 local function UpdateAllTabButtons()
-    if AimbotTabButtons["Aimbot"] then AimbotTabButtons["Aimbot"].Text = "Aimbot: " .. (getgenv().AimbotEnabled and "ON" or "OFF") end
+    if AimbotTabButtons["Aimbot"] then
+        local on = getgenv().AimbotEnabled
+        AimbotTabButtons["Aimbot"].Text = "Aimbot: " .. (on and "ON" or "OFF")
+        AimbotTabButtons["Aimbot"].BackgroundColor3 = on and Color3.fromRGB(0, 60, 0) or Color3.fromRGB(15, 15, 15)
+    end
     if AimbotTabButtons["Team Check"] then AimbotTabButtons["Team Check"].Text = "Team Check: " .. (getgenv().TeamCheck and "ON" or "OFF") end
     if AimbotTabButtons["Wall Check"] then AimbotTabButtons["Wall Check"].Text = "Wall Check: " .. (getgenv().WallCheck and "ON" or "OFF") end
-    if MiscTabButtons["Fly"] then MiscTabButtons["Fly"].Text = "✈️ Fly: " .. (getgenv().FlyEnabled and "ON" or "OFF") end
-    if MiscTabButtons["Noclip"] then MiscTabButtons["Noclip"].Text = "🚪 Noclip: " .. (getgenv().NoclipEnabled and "ON" or "OFF") end
+    if MiscTabButtons["Fly"] then
+        local on = getgenv().FlyEnabled
+        MiscTabButtons["Fly"].Text = "✈️ Fly: " .. (on and "ON" or "OFF")
+        MiscTabButtons["Fly"].BackgroundColor3 = on and Color3.fromRGB(0, 60, 60) or Color3.fromRGB(15, 15, 15)
+    end
+    if MiscTabButtons["Noclip"] then
+        local on = getgenv().NoclipEnabled
+        MiscTabButtons["Noclip"].Text = "🚪 Noclip: " .. (on and "ON" or "OFF")
+        MiscTabButtons["Noclip"].BackgroundColor3 = on and Color3.fromRGB(0, 60, 60) or Color3.fromRGB(15, 15, 15)
+    end
     if MiscTabButtons["RapidFire"] then
         local on = getgenv().RapidFireEnabled
         MiscTabButtons["RapidFire"].Text = "🔫 Rapid Fire: " .. (on and "ON" or "OFF")
@@ -1120,121 +1120,115 @@ local function UpdateKeybindLabels()
 end
 
 -- ============================================
--- TOGGLE FUNCTIONS
+-- SET (non-toggle) FUNCTIONS
 -- ============================================
 
-local function ToggleAimbot()
-    getgenv().AimbotEnabled = not getgenv().AimbotEnabled
-    Settings.AimbotEnabled = getgenv().AimbotEnabled
+local function SetAimbot(state)
+    getgenv().AimbotEnabled = state
+    Settings.AimbotEnabled = state
     SaveSettings()
     UpdateAllTabButtons()
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "🎯 Aimbot " .. (getgenv().AimbotEnabled and "ON" or "OFF")
-        SaveStatusLabel.TextColor3 = getgenv().AimbotEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
-    print("Aimbot " .. (getgenv().AimbotEnabled and "ENABLED" or "DISABLED"))
 end
 
-local function ToggleFly()
-    getgenv().FlyEnabled = not getgenv().FlyEnabled
-    Settings.FlyEnabled = getgenv().FlyEnabled
+local function SetFly(state)
+    getgenv().FlyEnabled = state
+    Settings.FlyEnabled = state
     SaveSettings()
     UpdateAllTabButtons()
-    if not getgenv().FlyEnabled then
+    if not state then
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then char.Humanoid.PlatformStand = false end
     end
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "✈️ Fly " .. (getgenv().FlyEnabled and "ON" or "OFF")
-        SaveStatusLabel.TextColor3 = getgenv().FlyEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
 end
 
-local function ToggleNoclip()
-    getgenv().NoclipEnabled = not getgenv().NoclipEnabled
-    Settings.NoclipEnabled = getgenv().NoclipEnabled
+local function SetNoclip(state)
+    getgenv().NoclipEnabled = state
+    Settings.NoclipEnabled = state
     SaveSettings()
     UpdateAllTabButtons()
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "🚪 Noclip " .. (getgenv().NoclipEnabled and "ON" or "OFF")
-        SaveStatusLabel.TextColor3 = getgenv().NoclipEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
 end
 
-local function ToggleESP()
-    Settings.ESPEnabled = not Settings.ESPEnabled
-    getgenv().ESPEnabled = Settings.ESPEnabled
+local function SetRapidFire(state)
+    getgenv().RapidFireEnabled = state
+    Settings.RapidFireEnabled = state
     SaveSettings()
-    if Settings.ESPEnabled then StartESP() print("👁️ ESP ENABLED")
-    else StopESP() print("👁️ ESP DISABLED") end
+    if state then StartRapidFire() else StopRapidFire() end
     UpdateAllTabButtons()
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "👁️ ESP " .. (Settings.ESPEnabled and "ON" or "OFF")
-        SaveStatusLabel.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
 end
 
-local function ToggleRapidFire()
-    getgenv().RapidFireEnabled = not getgenv().RapidFireEnabled
-    Settings.RapidFireEnabled = getgenv().RapidFireEnabled
+local function SetSuperFastShoot(state)
+    getgenv().SuperFastShootEnabled = state
+    Settings.SuperFastShootEnabled = state
     SaveSettings()
-    if getgenv().RapidFireEnabled then StartRapidFire() else StopRapidFire() end
+    if state then StartSuperFastShoot() else StopSuperFastShoot() end
     UpdateAllTabButtons()
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "🔫 Rapid Fire " .. (getgenv().RapidFireEnabled and "ON" or "OFF")
-        SaveStatusLabel.TextColor3 = getgenv().RapidFireEnabled and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
 end
 
-local function ToggleSuperFastShoot()
-    getgenv().SuperFastShootEnabled = not getgenv().SuperFastShootEnabled
-    Settings.SuperFastShootEnabled = getgenv().SuperFastShootEnabled
+local function SetSnapAim(state)
+    getgenv().SnapAimEnabled = state
+    Settings.SnapAimEnabled = state
     SaveSettings()
-    if getgenv().SuperFastShootEnabled then StartSuperFastShoot() else StopSuperFastShoot() end
     UpdateAllTabButtons()
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "⚡ Super Fast Shoot " .. (getgenv().SuperFastShootEnabled and "ON" or "OFF")
-        SaveStatusLabel.TextColor3 = getgenv().SuperFastShootEnabled and Color3.fromRGB(255, 0, 255) or Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-    end
 end
 
-local function ToggleSnapAim()
-    getgenv().SnapAimEnabled = not getgenv().SnapAimEnabled
-    Settings.SnapAimEnabled = getgenv().SnapAimEnabled
-    SaveSettings()
-    UpdateAllTabButtons()
-    if SaveStatusLabel then
-        SaveStatusLabel.Text = "⚡ Snap Aim " .. (getgenv().SnapAimEnabled and "ON" or "OFF")
-        SaveStatusLabel.TextColor3 = getgenv().SnapAimEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(255, 100, 100)
-        SaveStatusLabel.Visible = true
-        task.delay(1.5, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
+local function SetAttach(state)
+    if state then
+        if not AttachActive then ToggleAttach() end
+    else
+        if AttachActive then DetachFromPlayer() end
     end
 end
 
 -- ============================================
--- KEYBIND HANDLER
+-- TOGGLE FUNCTIONS (used by keybinds + buttons)
+-- ============================================
+
+local function ToggleAimbot()
+    SetAimbot(not getgenv().AimbotEnabled)
+end
+
+local function ToggleFly()
+    SetFly(not getgenv().FlyEnabled)
+end
+
+local function ToggleNoclip()
+    SetNoclip(not getgenv().NoclipEnabled)
+end
+
+local function ToggleESP()
+    SetESP(not Settings.ESPEnabled)
+end
+
+local function ToggleRapidFire()
+    SetRapidFire(not getgenv().RapidFireEnabled)
+end
+
+local function ToggleSuperFastShoot()
+    SetSuperFastShoot(not getgenv().SuperFastShootEnabled)
+end
+
+local function ToggleSnapAim()
+    SetSnapAim(not getgenv().SnapAimEnabled)
+end
+
+local function ToggleWallBang()
+    SetWallBang(not getgenv().WallBangEnabled)
+end
+
+-- ============================================
+-- KEYBIND HANDLER — ALL TOGGLES
 -- ============================================
 
 Track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed and not WaitingForKeybind then return end
     if gameProcessed and WaitingForKeybind and input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
     if input.KeyCode == Enum.KeyCode.RightShift then
         GuiVisible = not GuiVisible
         if MainFrame then MainFrame.Visible = GuiVisible end
         return
     end
+
     if WaitingForKeybind and input.KeyCode ~= Enum.KeyCode.Unknown then
         local key = input.KeyCode
         local action = WaitingForKeybindAction
@@ -1260,17 +1254,12 @@ Track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
             button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
         end
         print("✅ Bound " .. action .. " to " .. KeyCodeToString(key))
-        if SaveStatusLabel then
-            SaveStatusLabel.Text = "✅ Bound " .. action .. " to " .. KeyCodeToString(key)
-            SaveStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-            SaveStatusLabel.Visible = true
-            task.delay(2, function() if SaveStatusLabel then SaveStatusLabel.Visible = false end end)
-        end
         WaitingForKeybind = false
         WaitingForKeybindAction = nil
         WaitingForKeybindButton = nil
         return
     end
+
     if Keybinds.ToggleAimbot and input.KeyCode == Keybinds.ToggleAimbot and not KeybindDebounce.ToggleAimbot then
         KeybindDebounce.ToggleAimbot = true ToggleAimbot()
         task.delay(0.2, function() KeybindDebounce.ToggleAimbot = false end) return
@@ -1293,7 +1282,7 @@ Track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
     if Keybinds.ToggleSuperFast and input.KeyCode == Keybinds.ToggleSuperFast and not KeybindDebounce.ToggleSuperFast then
         KeybindDebounce.ToggleSuperFast = true ToggleSuperFastShoot()
-        task.delay(0.3, function() KeybindDebounce.ToggleSuperFast = false end) return
+        task.delay(0.2, function() KeybindDebounce.ToggleSuperFast = false end) return
     end
     if Keybinds.ToggleAttach and input.KeyCode == Keybinds.ToggleAttach and not KeybindDebounce.ToggleAttach then
         KeybindDebounce.ToggleAttach = true ToggleAttach()
@@ -1380,10 +1369,11 @@ local function GoLegit()
     end)
 
     pcall(function()
-        if RapidFireConnection then RapidFireConnection:Disconnect() RapidFireConnection = nil end
         RapidFireRunning = false
-        if SuperFastConnection then SuperFastConnection:Disconnect() SuperFastConnection = nil end
+        RapidFireBursting = false
+        if RapidFireConnection then RapidFireConnection:Disconnect() RapidFireConnection = nil end
         SuperFastRunning = false
+        if SuperFastConnection then SuperFastConnection:Disconnect() SuperFastConnection = nil end
     end)
 
     pcall(function()
@@ -1614,7 +1604,7 @@ local function CreateGUI()
         end)
     end
 
-    CreateAimbotToggle("Aimbot", 0, function() return getgenv().AimbotEnabled end, function(v) getgenv().AimbotEnabled = v end)
+    CreateAimbotToggle("Aimbot", 0, function() return getgenv().AimbotEnabled end, function(v) SetAimbot(v) end)
     CreateAimbotToggle("Team Check", 35, function() return getgenv().TeamCheck end, function(v) getgenv().TeamCheck = v end)
     CreateAimbotToggle("Wall Check", 70, function() return getgenv().WallCheck end, function(v) getgenv().WallCheck = v end)
     CreateAimbotSlider("FOV", 110, 50, 500, function() return getgenv().AimFOV end, function(v) getgenv().AimFOV = v UpdateFOVCircle() end)
@@ -1919,10 +1909,10 @@ local function CreateGUI()
 
     local KeybindInfo = Instance.new("TextLabel")
     KeybindInfo.Size = UDim2.new(1, 0, 0, 22)
-    KeybindInfo.Text = "Click a button to rebind | Keybinds work when menu is closed"
-    KeybindInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
+    KeybindInfo.Text = "All keybinds are toggles | Click a button to rebind"
+    KeybindInfo.TextColor3 = Color3.fromRGB(255, 200, 100)
     KeybindInfo.BackgroundTransparency = 1
-    KeybindInfo.Font = Enum.Font.Gotham
+    KeybindInfo.Font = Enum.Font.GothamBold
     KeybindInfo.TextSize = 11
     KeybindInfo.Parent = KeybindsTab
 
@@ -2264,7 +2254,6 @@ local function CreateGUI()
     RapidFireBtn.MouseButton1Click:Connect(ToggleRapidFire)
     MiscTabButtons["RapidFire"] = RapidFireBtn
 
-    -- SUPER FAST SHOOT BUTTON (NEW)
     SuperFastBtnRef = Instance.new("TextButton")
     SuperFastBtnRef.Name = "SuperFastBtn"
     SuperFastBtnRef.Size = UDim2.new(1, 0, 0, 30)
@@ -2320,14 +2309,20 @@ local function CreateGUI()
     RFDelaySlider.FocusLost:Connect(function()
         local val = tonumber(RFDelaySlider.Text)
         if val then
-            val = math.clamp(val, 0, 200) -- 0 = every heartbeat, max rate
+            val = math.clamp(val, 0, 200)
             getgenv().RapidFireDelay = val / 1000
             RFDelayLabel.Text = "RF Delay (ms): " .. val
             RFDelaySlider.Text = tostring(val)
             Settings.RapidFireDelay = getgenv().RapidFireDelay
             SaveSettings()
-            if getgenv().RapidFireEnabled then StopRapidFire() task.wait(0.1) StartRapidFire() end
-        else RFDelaySlider.Text = tostring(math.floor((getgenv().RapidFireDelay or 0) * 1000)) end
+            if getgenv().RapidFireEnabled and RapidFireRunning then
+                StopRapidFire()
+                task.wait(0.1)
+                StartRapidFire()
+            end
+        else
+            RFDelaySlider.Text = tostring(math.floor((getgenv().RapidFireDelay or 0) * 1000))
+        end
     end)
 
     local TeleportLabel = Instance.new("TextLabel")
@@ -2975,7 +2970,4 @@ end
 
 print("✅ FRShYHub V1 Loaded!")
 print("🔒 Right Shift - Show/Hide GUI")
-print("🧱 Misc tab → Shoot Through Walls")
-print("⚡ Aimbot tab → Snap Aim (Hard Lock) for max lock-on")
-print("🧹 Aimbot tab → GO LEGIT (Remove Script) to fully unload")
-print("⚡ Misc tab → Super Fast Shoot (every frame) — the fastest fire rate possible")
+print("🔁 All keybinds are TOGGLES (press once = ON, press again = OFF)")
