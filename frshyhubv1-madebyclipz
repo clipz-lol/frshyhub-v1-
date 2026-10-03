@@ -7,6 +7,7 @@
     + RAPID FIRE 0MS + SUPER FAST SHOOT (EVERY FRAME)
     + ALL KEYBINDS ARE TOGGLES
     + RAPID FIRE 0MS NOW FIRES 30 SHOTS PER FRAME (CLEAN TOGGLE)
+    + CUSTOMIZABLE MENU COLOR (THEME SYSTEM)
 ]]
 
 local function WaitForGame()
@@ -63,6 +64,45 @@ local KeybindDebounce = {
 }
 
 -- ============================================
+-- THEME / MENU COLOR SETTINGS
+-- ============================================
+
+local Theme = {
+    -- Accent color (used for borders, titles, active tab highlights, etc.)
+    AccentColor = {0, 255, 0},
+    -- Background color of the main frame
+    BackgroundColor = {13, 13, 13},
+    -- Background color of tab buttons / panels
+    PanelColor = {20, 20, 20},
+    -- Text color for normal labels
+    TextColor = {200, 200, 200},
+    -- Title text color
+    TitleColor = {0, 255, 0},
+    -- Header background color
+    HeaderColor = {8, 8, 8},
+    -- Preset name (for display)
+    PresetName = "Green",
+    -- Whether to auto-derive button colors from accent (true) or use PanelColor
+    UseAccentButtons = true,
+}
+
+-- Built-in presets
+local ThemePresets = {
+    Green   = {Accent = {0, 255, 0},   Background = {13, 13, 13}, Panel = {20, 20, 20}, Text = {200, 200, 200}, Title = {0, 255, 0},   Header = {8, 8, 8}},
+    Red     = {Accent = {255, 50, 50}, Background = {20, 10, 10}, Panel = {30, 15, 15}, Text = {220, 200, 200}, Title = {255, 80, 80},  Header = {15, 8, 8}},
+    Blue    = {Accent = {50, 150, 255},Background = {10, 13, 20}, Panel = {15, 20, 35}, Text = {200, 210, 230}, Title = {80, 170, 255}, Header = {8, 10, 18}},
+    Purple  = {Accent = {180, 80, 255},Background = {15, 10, 20}, Panel = {25, 15, 35}, Text = {215, 200, 230}, Title = {200, 100, 255},Header = {10, 8, 15}},
+    Orange  = {Accent = {255, 150, 0}, Background = {20, 15, 8},  Panel = {30, 22, 12}, Text = {230, 215, 195}, Title = {255, 170, 40}, Header = {15, 10, 5}},
+    Pink    = {Accent = {255, 80, 180},Background = {20, 10, 18}, Panel = {32, 15, 28}, Text = {230, 200, 220}, Title = {255, 110, 200},Header = {15, 8, 13}},
+    Cyan    = {Accent = {0, 230, 230}, Background = {8, 18, 18},  Panel = {12, 28, 28}, Text = {200, 225, 225}, Title = {0, 255, 255},  Header = {5, 12, 12}},
+    Yellow  = {Accent = {255, 230, 0}, Background = {18, 18, 8},  Panel = {28, 28, 12}, Text = {230, 230, 200}, Title = {255, 240, 50}, Header = {12, 12, 5}},
+    White   = {Accent = {230, 230, 230},Background = {15, 15, 15},Panel = {25, 25, 25}, Text = {210, 210, 210}, Title = {255, 255, 255},Header = {10, 10, 10}},
+    Dark    = {Accent = {60, 60, 70},  Background = {8, 8, 10},   Panel = {14, 14, 18}, Text = {160, 160, 170}, Title = {140, 140, 150},Header = {5, 5, 7}},
+}
+
+local ThemePresetOrder = {"Green", "Red", "Blue", "Purple", "Orange", "Pink", "Cyan", "Yellow", "White", "Dark"}
+
+-- ============================================
 -- SETTINGS
 -- ============================================
 
@@ -88,7 +128,43 @@ local Settings = {
     AttachEnabled = false, AttachTarget = nil,
     AttachOffsetX = 0, AttachOffsetY = 2, AttachOffsetZ = 3, AttachLockRotation = true,
     WallBangEnabled = false, SnapAimEnabled = false,
+    -- Theme settings
+    ThemePreset = "Green",
+    ThemeAccent = {0, 255, 0},
+    ThemeBackground = {13, 13, 13},
+    ThemePanel = {20, 20, 20},
+    ThemeText = {200, 200, 200},
+    ThemeTitle = {0, 255, 0},
+    ThemeHeader = {8, 8, 8},
+    ThemeUseAccentButtons = true,
 }
+
+local function ApplyThemeFromSettings()
+    Theme.AccentColor     = Settings.ThemeAccent or {0, 255, 0}
+    Theme.BackgroundColor = Settings.ThemeBackground or {13, 13, 13}
+    Theme.PanelColor      = Settings.ThemePanel or {20, 20, 20}
+    Theme.TextColor       = Settings.ThemeText or {200, 200, 200}
+    Theme.TitleColor      = Settings.ThemeTitle or {0, 255, 0}
+    Theme.HeaderColor     = Settings.ThemeHeader or {8, 8, 8}
+    Theme.PresetName      = Settings.ThemePreset or "Custom"
+    Theme.UseAccentButtons = Settings.ThemeUseAccentButtons ~= false
+end
+ApplyThemeFromSettings()
+
+-- Helper: convert {r,g,b} to Color3
+local function TC(colorTable)
+    return Color3.fromRGB(colorTable[1] or 0, colorTable[2] or 0, colorTable[3] or 0)
+end
+
+-- Helper: derive a dimmed panel color from accent (for active buttons)
+local function AccentPanel(colorTable, factor)
+    factor = factor or 0.3
+    return Color3.fromRGB(
+        math.floor((colorTable[1] or 0) * factor),
+        math.floor((colorTable[2] or 0) * factor),
+        math.floor((colorTable[3] or 0) * factor)
+    )
+end
 
 local function StringToKeyCode(str)
     if not str or str == "None" then return nil end
@@ -125,6 +201,7 @@ local function SaveSettings()
 end
 
 LoadSettings()
+ApplyThemeFromSettings()
 
 Keybinds.ToggleAimbot = StringToKeyCode(Settings.Keybind_ToggleAimbot)
 Keybinds.ToggleFly = StringToKeyCode(Settings.Keybind_ToggleFly)
@@ -283,7 +360,12 @@ local function SaveToSlot(slotNumber)
         ESPColorMode = Settings.ESPColorMode, ESPCustomColor = Settings.ESPCustomColor,
         ESPBoxThickness = Settings.ESPBoxThickness, ESPTextSize = Settings.ESPTextSize,
         ESPShowLocal = Settings.ESPShowLocal, WallBangEnabled = Settings.WallBangEnabled,
-        SnapAimEnabled = Settings.SnapAimEnabled
+        SnapAimEnabled = Settings.SnapAimEnabled,
+        -- Theme
+        ThemePreset = Settings.ThemePreset, ThemeAccent = Settings.ThemeAccent,
+        ThemeBackground = Settings.ThemeBackground, ThemePanel = Settings.ThemePanel,
+        ThemeText = Settings.ThemeText, ThemeTitle = Settings.ThemeTitle,
+        ThemeHeader = Settings.ThemeHeader, ThemeUseAccentButtons = Settings.ThemeUseAccentButtons,
     }
     local success = pcall(function()
         writefile(GetSlotFilename(slotNumber), HttpService:JSONEncode(slotData))
@@ -304,12 +386,19 @@ local function LoadFromSlot(slotNumber)
             RebuildProtectedSet()
         elseif key == "ESPCustomColor" then Settings.ESPCustomColor = value
         elseif key == "FOVColor" then Settings.FOVColor = value
+        elseif key == "ThemeAccent" then Settings.ThemeAccent = value
+        elseif key == "ThemeBackground" then Settings.ThemeBackground = value
+        elseif key == "ThemePanel" then Settings.ThemePanel = value
+        elseif key == "ThemeText" then Settings.ThemeText = value
+        elseif key == "ThemeTitle" then Settings.ThemeTitle = value
+        elseif key == "ThemeHeader" then Settings.ThemeHeader = value
         elseif string.match(key, "Keybind_") then Settings[key] = value
         else
             getgenv()[key] = value
             Settings[key] = value
         end
     end
+    ApplyThemeFromSettings()
     Keybinds.ToggleAimbot = StringToKeyCode(Settings.Keybind_ToggleAimbot)
     Keybinds.ToggleFly = StringToKeyCode(Settings.Keybind_ToggleFly)
     Keybinds.ToggleNoclip = StringToKeyCode(Settings.Keybind_ToggleNoclip)
@@ -325,6 +414,7 @@ local function LoadFromSlot(slotNumber)
     if UpdateFOVCircle then UpdateFOVCircle() end
     if UpdateKeybindLabels then UpdateKeybindLabels() end
     if UpdateAllTabButtons then UpdateAllTabButtons() end
+    if ApplyThemeToGUI then ApplyThemeToGUI() end
     return true
 end
 
@@ -922,6 +1012,16 @@ local ESPToggleBtnRef = nil
 local SnapAimBtnRef = nil
 local SuperFastBtnRef = nil
 
+-- NEW: references for theme customization
+local ThemePresetBtnRef = nil
+local ThemeAccentInputRef = nil
+local ThemeBgInputRef = nil
+local ThemePanelInputRef = nil
+local ThemeTextInputRef = nil
+local ThemeTitleInputRef = nil
+local ThemeHeaderInputRef = nil
+local ThemeAccentButtonsBtnRef = nil
+
 -- ============================================
 -- UPDATE FUNCTIONS
 -- ============================================
@@ -953,7 +1053,7 @@ local function UpdatePlayerList()
         Button.Size = UDim2.new(1, -10, 0, 26)
         Button.Position = UDim2.new(0, 5, 0, yPos)
         Button.Text = (isProtected and "🛡️ " or "⬜ ") .. player.Name
-        Button.TextColor3 = isProtected and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(200, 200, 200)
+        Button.TextColor3 = isProtected and Color3.fromRGB(255, 215, 0) or TC(Theme.TextColor)
         Button.BackgroundColor3 = isProtected and Color3.fromRGB(30, 30, 10) or Color3.fromRGB(15, 15, 15)
         Button.Font = Enum.Font.Gotham
         Button.TextSize = 13
@@ -1064,19 +1164,19 @@ local function UpdateAllTabButtons()
     if AimbotTabButtons["Aimbot"] then
         local on = getgenv().AimbotEnabled
         AimbotTabButtons["Aimbot"].Text = "Aimbot: " .. (on and "ON" or "OFF")
-        AimbotTabButtons["Aimbot"].BackgroundColor3 = on and Color3.fromRGB(0, 60, 0) or Color3.fromRGB(15, 15, 15)
+        AimbotTabButtons["Aimbot"].BackgroundColor3 = on and AccentPanel(Theme.AccentColor) or TC(Theme.PanelColor)
     end
     if AimbotTabButtons["Team Check"] then AimbotTabButtons["Team Check"].Text = "Team Check: " .. (getgenv().TeamCheck and "ON" or "OFF") end
     if AimbotTabButtons["Wall Check"] then AimbotTabButtons["Wall Check"].Text = "Wall Check: " .. (getgenv().WallCheck and "ON" or "OFF") end
     if MiscTabButtons["Fly"] then
         local on = getgenv().FlyEnabled
         MiscTabButtons["Fly"].Text = "✈️ Fly: " .. (on and "ON" or "OFF")
-        MiscTabButtons["Fly"].BackgroundColor3 = on and Color3.fromRGB(0, 60, 60) or Color3.fromRGB(15, 15, 15)
+        MiscTabButtons["Fly"].BackgroundColor3 = on and AccentPanel(Theme.AccentColor) or TC(Theme.PanelColor)
     end
     if MiscTabButtons["Noclip"] then
         local on = getgenv().NoclipEnabled
         MiscTabButtons["Noclip"].Text = "🚪 Noclip: " .. (on and "ON" or "OFF")
-        MiscTabButtons["Noclip"].BackgroundColor3 = on and Color3.fromRGB(0, 60, 60) or Color3.fromRGB(15, 15, 15)
+        MiscTabButtons["Noclip"].BackgroundColor3 = on and AccentPanel(Theme.AccentColor) or TC(Theme.PanelColor)
     end
     if MiscTabButtons["RapidFire"] then
         local on = getgenv().RapidFireEnabled
@@ -1307,6 +1407,153 @@ Track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end))
 
 -- ============================================
+-- THEME / COLOR FUNCTIONS
+-- ============================================
+
+local function ApplyThemeToAllButtons()
+    -- Update tab buttons
+    if TabButtons then
+        for _, btn in ipairs(TabButtons) do
+            local tabName = btn.Text
+            local tabColor = {
+                Aimbot = Theme.AccentColor,
+                Visuals = {50, 200, 255},
+                ESP = {0, 255, 100},
+                Keybinds = {255, 200, 50},
+                ["Friend Manager"] = {255, 215, 0},
+                Slots = {150, 50, 255},
+                Misc = {0, 255, 150},
+                Attach = {0, 255, 200}
+            }
+            local c = tabColor[tabName] or Theme.AccentColor
+            local isActive = btn.TextColor3 == Color3.fromRGB(255, 255, 255)
+            if isActive then
+                btn.BackgroundColor3 = AccentPanel(c, 0.3)
+                btn.BorderColor3 = TC(c)
+            else
+                btn.BackgroundColor3 = TC(Theme.PanelColor)
+                btn.BorderColor3 = Color3.fromRGB(30, 30, 30)
+            end
+        end
+    end
+
+    -- Update main frame
+    if MainFrame then
+        MainFrame.BackgroundColor3 = TC(Theme.BackgroundColor)
+        MainFrame.BorderColor3 = TC(Theme.AccentColor)
+    end
+
+    -- Update title
+    if MainFrame then
+        for _, child in ipairs(MainFrame:GetChildren()) do
+            if child:IsA("TextLabel") then
+                if child.Text == "FRShYHub V1" then
+                    child.TextColor3 = TC(Theme.TitleColor)
+                    child.BackgroundColor3 = TC(Theme.HeaderColor)
+                elseif child.Text == "Made by clipz" then
+                    child.TextColor3 = TC(Theme.AccentColor)
+                end
+            end
+        end
+    end
+
+    -- Update all buttons in the theme tab
+    if ThemePresetBtnRef then
+        ThemePresetBtnRef.Text = "Preset: " .. Theme.PresetName
+        ThemePresetBtnRef.TextColor3 = TC(Theme.TitleColor)
+        ThemePresetBtnRef.BorderColor3 = TC(Theme.AccentColor)
+    end
+    if ThemeAccentInputRef then
+        ThemeAccentInputRef.Text = table.concat(Theme.AccentColor, ",")
+        ThemeAccentInputRef.TextColor3 = TC(Theme.AccentColor)
+        ThemeAccentInputRef.BorderColor3 = TC(Theme.AccentColor)
+    end
+    if ThemeBgInputRef then
+        ThemeBgInputRef.Text = table.concat(Theme.BackgroundColor, ",")
+        ThemeBgInputRef.TextColor3 = TC(Theme.TextColor)
+    end
+    if ThemePanelInputRef then
+        ThemePanelInputRef.Text = table.concat(Theme.PanelColor, ",")
+        ThemePanelInputRef.TextColor3 = TC(Theme.TextColor)
+    end
+    if ThemeTextInputRef then
+        ThemeTextInputRef.Text = table.concat(Theme.TextColor, ",")
+        ThemeTextInputRef.TextColor3 = TC(Theme.TextColor)
+    end
+    if ThemeTitleInputRef then
+        ThemeTitleInputRef.Text = table.concat(Theme.TitleColor, ",")
+        ThemeTitleInputRef.TextColor3 = TC(Theme.TitleColor)
+    end
+    if ThemeHeaderInputRef then
+        ThemeHeaderInputRef.Text = table.concat(Theme.HeaderColor, ",")
+        ThemeHeaderInputRef.TextColor3 = TC(Theme.HeaderColor)
+    end
+    if ThemeAccentButtonsBtnRef then
+        ThemeAccentButtonsBtnRef.Text = "Accent Buttons: " .. (Theme.UseAccentButtons and "ON" or "OFF")
+        ThemeAccentButtonsBtnRef.TextColor3 = Theme.UseAccentButtons and TC(Theme.AccentColor) or Color3.fromRGB(150, 150, 150)
+        ThemeAccentButtonsBtnRef.BorderColor3 = Theme.UseAccentButtons and TC(Theme.AccentColor) or Color3.fromRGB(100, 100, 100)
+    end
+
+    -- Update Aimbot tab toggles
+    for _, btn in pairs(AimbotTabButtons) do
+        if btn and btn.Text:match("^Aimbot:") then
+            local on = getgenv().AimbotEnabled
+            btn.BackgroundColor3 = on and AccentPanel(Theme.AccentColor) or TC(Theme.PanelColor)
+            btn.BorderColor3 = TC(Theme.AccentColor)
+            btn.TextColor3 = TC(Theme.TextColor)
+        end
+    end
+    for _, btn in pairs(MiscTabButtons) do
+        if btn then
+            btn.BorderColor3 = btn.BorderColor3 -- keep functional colors
+        end
+    end
+    -- FOV circle
+    if FOVCircle then
+        local color = Color3.fromRGB(Settings.FOVColor[1], Settings.FOVColor[2], Settings.FOVColor[3])
+        FOVCircle.BackgroundColor3 = color
+        FOVCircle.BorderColor3 = color
+    end
+end
+
+local function ApplyThemeFromPreset(presetName)
+    local preset = ThemePresets[presetName]
+    if not preset then return false end
+    Theme.AccentColor     = preset.Accent
+    Theme.BackgroundColor = preset.Background
+    Theme.PanelColor      = preset.Panel
+    Theme.TextColor       = preset.Text
+    Theme.TitleColor      = preset.Title
+    Theme.HeaderColor     = preset.Header
+    Theme.PresetName      = presetName
+    Settings.ThemePreset     = presetName
+    Settings.ThemeAccent     = preset.Accent
+    Settings.ThemeBackground = preset.Background
+    Settings.ThemePanel      = preset.Panel
+    Settings.ThemeText       = preset.Text
+    Settings.ThemeTitle      = preset.Title
+    Settings.ThemeHeader     = preset.Header
+    SaveSettings()
+    if ApplyThemeToGUI then ApplyThemeToGUI() end
+    return true
+end
+
+local function ParseColorInput(text, fallback)
+    local parts = {}
+    for part in string.gmatch(text, "[^,]+") do
+        table.insert(parts, tonumber(part))
+    end
+    if #parts == 3 then
+        return {
+            math.clamp(math.floor(parts[1] or 0), 0, 255),
+            math.clamp(math.floor(parts[2] or 0), 0, 255),
+            math.clamp(math.floor(parts[3] or 0), 0, 255)
+        }
+    end
+    return fallback
+end
+
+-- ============================================
 -- GO LEGIT — FULLY REMOVES THE SCRIPT
 -- ============================================
 
@@ -1405,6 +1652,14 @@ local function GoLegit()
         if ESPToggleBtnRef then ESPToggleBtnRef:Destroy() ESPToggleBtnRef = nil end
         if SnapAimBtnRef then SnapAimBtnRef:Destroy() SnapAimBtnRef = nil end
         if SuperFastBtnRef then SuperFastBtnRef:Destroy() SuperFastBtnRef = nil end
+        if ThemePresetBtnRef then ThemePresetBtnRef:Destroy() ThemePresetBtnRef = nil end
+        if ThemeAccentInputRef then ThemeAccentInputRef:Destroy() ThemeAccentInputRef = nil end
+        if ThemeBgInputRef then ThemeBgInputRef:Destroy() ThemeBgInputRef = nil end
+        if ThemePanelInputRef then ThemePanelInputRef:Destroy() ThemePanelInputRef = nil end
+        if ThemeTextInputRef then ThemeTextInputRef:Destroy() ThemeTextInputRef = nil end
+        if ThemeTitleInputRef then ThemeTitleInputRef:Destroy() ThemeTitleInputRef = nil end
+        if ThemeHeaderInputRef then ThemeHeaderInputRef:Destroy() ThemeHeaderInputRef = nil end
+        if ThemeAccentButtonsBtnRef then ThemeAccentButtonsBtnRef:Destroy() ThemeAccentButtonsBtnRef = nil end
     end)
 
     PlayerButtons = {}
@@ -1459,10 +1714,10 @@ local function CreateGUI()
     MainFrame = Instance.new("Frame")
     MainFrame.Size = UDim2.new(0, 500, 0, 720)
     MainFrame.Position = UDim2.new(0.5, -250, 0.5, -360)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(13, 13, 13)
+    MainFrame.BackgroundColor3 = TC(Theme.BackgroundColor)
     MainFrame.BackgroundTransparency = 0.05
     MainFrame.BorderSizePixel = 2
-    MainFrame.BorderColor3 = Color3.fromRGB(0, 255, 0)
+    MainFrame.BorderColor3 = TC(Theme.AccentColor)
     MainFrame.Parent = ScreenGui
     MainFrame.Active = true
     MainFrame.Draggable = true
@@ -1471,8 +1726,8 @@ local function CreateGUI()
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 0, 50)
     Title.Text = "FRShYHub V1"
-    Title.TextColor3 = Color3.fromRGB(0, 255, 0)
-    Title.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    Title.TextColor3 = TC(Theme.TitleColor)
+    Title.BackgroundColor3 = TC(Theme.HeaderColor)
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 24
     Title.Parent = MainFrame
@@ -1481,7 +1736,7 @@ local function CreateGUI()
     MadeBy.Size = UDim2.new(1, 0, 0, 20)
     MadeBy.Position = UDim2.new(0, 0, 0, 50)
     MadeBy.Text = "Made by clipz"
-    MadeBy.TextColor3 = Color3.fromRGB(0, 200, 0)
+    MadeBy.TextColor3 = TC(Theme.AccentColor)
     MadeBy.BackgroundTransparency = 1
     MadeBy.Font = Enum.Font.Gotham
     MadeBy.TextSize = 12
@@ -1490,37 +1745,37 @@ local function CreateGUI()
     local tabY = 75
     local tabs = {"Aimbot", "Visuals", "ESP", "Keybinds", "Friend Manager", "Slots", "Misc", "Attach"}
     local tabColors = {
-        Aimbot = Color3.fromRGB(255, 50, 50),
-        Visuals = Color3.fromRGB(50, 200, 255),
-        ESP = Color3.fromRGB(0, 255, 100),
-        Keybinds = Color3.fromRGB(255, 200, 50),
-        ["Friend Manager"] = Color3.fromRGB(255, 215, 0),
-        Slots = Color3.fromRGB(150, 50, 255),
-        Misc = Color3.fromRGB(0, 255, 150),
-        Attach = Color3.fromRGB(0, 255, 200)
+        Aimbot = Theme.AccentColor,
+        Visuals = {50, 200, 255},
+        ESP = {0, 255, 100},
+        Keybinds = {255, 200, 50},
+        ["Friend Manager"] = {255, 215, 0},
+        Slots = {150, 50, 255},
+        Misc = {0, 255, 150},
+        Attach = {0, 255, 200}
     }
     for i, tabName in ipairs(tabs) do
         local TabButton = Instance.new("TextButton")
         TabButton.Size = UDim2.new(0, 140, 0, 26)
         TabButton.Position = UDim2.new(0, 15, 0, tabY + ((i-1) * 31))
         TabButton.Text = tabName
-        TabButton.TextColor3 = (i == 1) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
-        TabButton.BackgroundColor3 = (i == 1) and Color3.fromRGB(tabColors[tabName].R * 0.3, tabColors[tabName].G * 0.3, tabColors[tabName].B * 0.3) or Color3.fromRGB(20, 20, 20)
+        TabButton.TextColor3 = (i == 1) and Color3.fromRGB(255, 255, 255) or TC(Theme.TextColor)
+        TabButton.BackgroundColor3 = (i == 1) and AccentPanel(tabColors[tabName]) or TC(Theme.PanelColor)
         TabButton.Font = Enum.Font.GothamBold
         TabButton.TextSize = 11
         TabButton.BorderSizePixel = 1
-        TabButton.BorderColor3 = (i == 1) and tabColors[tabName] or Color3.fromRGB(30, 30, 30)
+        TabButton.BorderColor3 = (i == 1) and TC(tabColors[tabName]) or Color3.fromRGB(30, 30, 30)
         TabButton.TextXAlignment = Enum.TextXAlignment.Left
         TabButton.Parent = MainFrame
         TabButton.MouseButton1Click:Connect(function()
             for _, btn in ipairs(TabButtons) do
                 if btn.Text == tabName then
                     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    btn.BackgroundColor3 = Color3.fromRGB(tabColors[tabName].R * 0.3, tabColors[tabName].G * 0.3, tabColors[tabName].B * 0.3)
-                    btn.BorderColor3 = tabColors[tabName]
+                    btn.BackgroundColor3 = AccentPanel(tabColors[tabName])
+                    btn.BorderColor3 = TC(tabColors[tabName])
                 else
-                    btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-                    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                    btn.TextColor3 = TC(Theme.TextColor)
+                    btn.BackgroundColor3 = TC(Theme.PanelColor)
                     btn.BorderColor3 = Color3.fromRGB(30, 30, 30)
                 end
             end
@@ -1549,12 +1804,12 @@ local function CreateGUI()
         Button.Size = UDim2.new(1, 0, 0, 30)
         Button.Position = UDim2.new(0, 0, 0, yPos)
         Button.Text = name .. ": " .. (getter() and "ON" or "OFF")
-        Button.TextColor3 = Color3.fromRGB(0, 255, 0)
-        Button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        Button.TextColor3 = TC(Theme.TextColor)
+        Button.BackgroundColor3 = TC(Theme.PanelColor)
         Button.Font = Enum.Font.Gotham
         Button.TextSize = 13
         Button.BorderSizePixel = 1
-        Button.BorderColor3 = Color3.fromRGB(0, 255, 0)
+        Button.BorderColor3 = TC(Theme.AccentColor)
         Button.Parent = AimbotTab
         Button.MouseButton1Click:Connect(function()
             local newState = not getter()
@@ -1576,7 +1831,7 @@ local function CreateGUI()
         local Label = Instance.new("TextLabel")
         Label.Size = UDim2.new(1, 0, 0, 20)
         Label.Text = name .. ": " .. tostring(getter())
-        Label.TextColor3 = Color3.fromRGB(0, 200, 0)
+        Label.TextColor3 = TC(Theme.AccentColor)
         Label.BackgroundTransparency = 1
         Label.Font = Enum.Font.Gotham
         Label.TextSize = 13
@@ -1586,8 +1841,8 @@ local function CreateGUI()
         Slider.Size = UDim2.new(1, 0, 0, 22)
         Slider.Position = UDim2.new(0, 0, 0, 22)
         Slider.Text = tostring(getter())
-        Slider.TextColor3 = Color3.fromRGB(0, 255, 0)
-        Slider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        Slider.TextColor3 = TC(Theme.AccentColor)
+        Slider.BackgroundColor3 = TC(Theme.PanelColor)
         Slider.Font = Enum.Font.Gotham
         Slider.TextSize = 13
         Slider.Parent = Container
@@ -1618,7 +1873,7 @@ local function CreateGUI()
     SnapAimBtnRef.Position = UDim2.new(0, 0, 0, 290)
     SnapAimBtnRef.Text = "⚡ Snap Aim (Hard Lock): " .. (getgenv().SnapAimEnabled and "ON" or "OFF")
     SnapAimBtnRef.TextColor3 = getgenv().SnapAimEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
-    SnapAimBtnRef.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    SnapAimBtnRef.BackgroundColor3 = TC(Theme.PanelColor)
     SnapAimBtnRef.Font = Enum.Font.GothamBold
     SnapAimBtnRef.TextSize = 13
     SnapAimBtnRef.BorderSizePixel = 2
@@ -1651,7 +1906,7 @@ local function CreateGUI()
     ShowFOVBtn.Size = UDim2.new(1, 0, 0, 30)
     ShowFOVBtn.Text = "Show FOV: " .. (getgenv().ShowFOV and "ON" or "OFF")
     ShowFOVBtn.TextColor3 = Color3.fromRGB(0, 255, 200)
-    ShowFOVBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ShowFOVBtn.BackgroundColor3 = TC(Theme.PanelColor)
     ShowFOVBtn.Font = Enum.Font.Gotham
     ShowFOVBtn.TextSize = 13
     ShowFOVBtn.BorderSizePixel = 1
@@ -1670,7 +1925,7 @@ local function CreateGUI()
     FOVShapeBtn.Position = UDim2.new(0, 0, 0, 35)
     FOVShapeBtn.Text = "FOV Shape: " .. Settings.FOVShape
     FOVShapeBtn.TextColor3 = Color3.fromRGB(0, 255, 200)
-    FOVShapeBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    FOVShapeBtn.BackgroundColor3 = TC(Theme.PanelColor)
     FOVShapeBtn.Font = Enum.Font.Gotham
     FOVShapeBtn.TextSize = 13
     FOVShapeBtn.BorderSizePixel = 1
@@ -1702,7 +1957,7 @@ local function CreateGUI()
     FOVBorderSlider.Position = UDim2.new(0, 0, 0, 22)
     FOVBorderSlider.Text = tostring(Settings.FOVBorderSize or 2)
     FOVBorderSlider.TextColor3 = Color3.fromRGB(0, 255, 200)
-    FOVBorderSlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    FOVBorderSlider.BackgroundColor3 = TC(Theme.PanelColor)
     FOVBorderSlider.Font = Enum.Font.Gotham
     FOVBorderSlider.TextSize = 13
     FOVBorderSlider.Parent = FOVBorderContainer
@@ -1737,7 +1992,7 @@ local function CreateGUI()
     FOVTransSlider.Position = UDim2.new(0, 0, 0, 22)
     FOVTransSlider.Text = tostring(math.floor(Settings.FOVTransparency * 100))
     FOVTransSlider.TextColor3 = Color3.fromRGB(0, 255, 200)
-    FOVTransSlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    FOVTransSlider.BackgroundColor3 = TC(Theme.PanelColor)
     FOVTransSlider.Font = Enum.Font.Gotham
     FOVTransSlider.TextSize = 13
     FOVTransSlider.Parent = FOVTransContainer
@@ -1772,7 +2027,7 @@ local function CreateGUI()
     FOVColorSlider.Position = UDim2.new(0, 0, 0, 22)
     FOVColorSlider.Text = Settings.FOVColor[1] .. "," .. Settings.FOVColor[2] .. "," .. Settings.FOVColor[3]
     FOVColorSlider.TextColor3 = Color3.fromRGB(0, 255, 200)
-    FOVColorSlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    FOVColorSlider.BackgroundColor3 = TC(Theme.PanelColor)
     FOVColorSlider.Font = Enum.Font.Gotham
     FOVColorSlider.TextSize = 13
     FOVColorSlider.Parent = FOVColorContainer
@@ -1791,7 +2046,155 @@ local function CreateGUI()
         else FOVColorSlider.Text = Settings.FOVColor[1] .. "," .. Settings.FOVColor[2] .. "," .. Settings.FOVColor[3] end
     end)
 
+    -- ============================================
+    -- THEME / MENU COLOR SECTION
+    -- ============================================
+    local ThemeSectionLabel = Instance.new("TextLabel")
+    ThemeSectionLabel.Size = UDim2.new(1, 0, 0, 22)
+    ThemeSectionLabel.Position = UDim2.new(0, 0, 0, 220)
+    ThemeSectionLabel.Text = "── Menu Theme ──"
+    ThemeSectionLabel.TextColor3 = TC(Theme.AccentColor)
+    ThemeSectionLabel.BackgroundTransparency = 1
+    ThemeSectionLabel.Font = Enum.Font.GothamBold
+    ThemeSectionLabel.TextSize = 13
+    ThemeSectionLabel.Parent = VisualsTab
+
+    -- Preset cycle button
+    ThemePresetBtnRef = Instance.new("TextButton")
+    ThemePresetBtnRef.Name = "ThemePresetBtn"
+    ThemePresetBtnRef.Size = UDim2.new(1, 0, 0, 30)
+    ThemePresetBtnRef.Position = UDim2.new(0, 0, 0, 245)
+    ThemePresetBtnRef.Text = "Preset: " .. Theme.PresetName
+    ThemePresetBtnRef.TextColor3 = TC(Theme.TitleColor)
+    ThemePresetBtnRef.BackgroundColor3 = TC(Theme.PanelColor)
+    ThemePresetBtnRef.Font = Enum.Font.GothamBold
+    ThemePresetBtnRef.TextSize = 13
+    ThemePresetBtnRef.BorderSizePixel = 1
+    ThemePresetBtnRef.BorderColor3 = TC(Theme.AccentColor)
+    ThemePresetBtnRef.Parent = VisualsTab
+    ThemePresetBtnRef.MouseButton1Click:Connect(function()
+        local idx = table.find(ThemePresetOrder, Theme.PresetName)
+        if not idx then idx = 1 end
+        idx = idx + 1
+        if idx > #ThemePresetOrder then idx = 1 end
+        ApplyThemeFromPreset(ThemePresetOrder[idx])
+        if ApplyThemeToGUI then ApplyThemeToGUI() end
+    end)
+
+    -- Helper to make a color input row
+    local function CreateThemeColorInput(labelText, yPos, getter, setter, colorKey)
+        local Container = Instance.new("Frame")
+        Container.Size = UDim2.new(1, 0, 0, 45)
+        Container.Position = UDim2.new(0, 0, 0, yPos)
+        Container.BackgroundTransparency = 1
+        Container.Parent = VisualsTab
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(1, 0, 0, 20)
+        Label.Text = labelText .. ": " .. table.concat(getter(), ",")
+        Label.TextColor3 = TC(Theme.AccentColor)
+        Label.BackgroundTransparency = 1
+        Label.Font = Enum.Font.Gotham
+        Label.TextSize = 12
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.Parent = Container
+        local Input = Instance.new("TextBox")
+        Input.Size = UDim2.new(1, 0, 0, 22)
+        Input.Position = UDim2.new(0, 0, 0, 20)
+        Input.Text = table.concat(getter(), ",")
+        Input.TextColor3 = TC(Theme.AccentColor)
+        Input.BackgroundColor3 = TC(Theme.PanelColor)
+        Input.Font = Enum.Font.Gotham
+        Input.TextSize = 13
+        Input.Parent = Container
+        Input.FocusLost:Connect(function()
+            local parsed = ParseColorInput(Input.Text, getter())
+            setter(parsed)
+            Label.Text = labelText .. ": " .. table.concat(parsed, ",")
+            Input.Text = table.concat(parsed, ",")
+            SaveSettings()
+            if ApplyThemeToGUI then ApplyThemeToGUI() end
+        end)
+        return Input
+    end
+
+    ThemeAccentInputRef = CreateThemeColorInput("Accent Color (R,G,B)", 280,
+        function() return Theme.AccentColor end,
+        function(v)
+            Theme.AccentColor = v
+            Settings.ThemeAccent = v
+            Settings.ThemePreset = "Custom"
+            Theme.PresetName = "Custom"
+        end)
+
+    ThemeBgInputRef = CreateThemeColorInput("Background Color (R,G,B)", 325,
+        function() return Theme.BackgroundColor end,
+        function(v)
+            Theme.BackgroundColor = v
+            Settings.ThemeBackground = v
+            Settings.ThemePreset = "Custom"
+            Theme.PresetName = "Custom"
+        end)
+
+    ThemePanelInputRef = CreateThemeColorInput("Panel Color (R,G,B)", 370,
+        function() return Theme.PanelColor end,
+        function(v)
+            Theme.PanelColor = v
+            Settings.ThemePanel = v
+            Settings.ThemePreset = "Custom"
+            Theme.PresetName = "Custom"
+        end)
+
+    ThemeTextInputRef = CreateThemeColorInput("Text Color (R,G,B)", 415,
+        function() return Theme.TextColor end,
+        function(v)
+            Theme.TextColor = v
+            Settings.ThemeText = v
+            Settings.ThemePreset = "Custom"
+            Theme.PresetName = "Custom"
+        end)
+
+    ThemeTitleInputRef = CreateThemeColorInput("Title Color (R,G,B)", 460,
+        function() return Theme.TitleColor end,
+        function(v)
+            Theme.TitleColor = v
+            Settings.ThemeTitle = v
+            Settings.ThemePreset = "Custom"
+            Theme.PresetName = "Custom"
+        end)
+
+    ThemeHeaderInputRef = CreateThemeColorInput("Header Color (R,G,B)", 505,
+        function() return Theme.HeaderColor end,
+        function(v)
+            Theme.HeaderColor = v
+            Settings.ThemeHeader = v
+            Settings.ThemePreset = "Custom"
+            Theme.PresetName = "Custom"
+        end)
+
+    -- Accent Buttons toggle
+    ThemeAccentButtonsBtnRef = Instance.new("TextButton")
+    ThemeAccentButtonsBtnRef.Name = "ThemeAccentButtonsBtn"
+    ThemeAccentButtonsBtnRef.Size = UDim2.new(1, 0, 0, 28)
+    ThemeAccentButtonsBtnRef.Position = UDim2.new(0, 0, 0, 550)
+    ThemeAccentButtonsBtnRef.Text = "Accent Buttons: " .. (Theme.UseAccentButtons and "ON" or "OFF")
+    ThemeAccentButtonsBtnRef.TextColor3 = Theme.UseAccentButtons and TC(Theme.AccentColor) or Color3.fromRGB(150, 150, 150)
+    ThemeAccentButtonsBtnRef.BackgroundColor3 = TC(Theme.PanelColor)
+    ThemeAccentButtonsBtnRef.Font = Enum.Font.Gotham
+    ThemeAccentButtonsBtnRef.TextSize = 13
+    ThemeAccentButtonsBtnRef.BorderSizePixel = 1
+    ThemeAccentButtonsBtnRef.BorderColor3 = Theme.UseAccentButtons and TC(Theme.AccentColor) or Color3.fromRGB(100, 100, 100)
+    ThemeAccentButtonsBtnRef.Parent = VisualsTab
+    ThemeAccentButtonsBtnRef.MouseButton1Click:Connect(function()
+        Theme.UseAccentButtons = not Theme.UseAccentButtons
+        Settings.ThemeUseAccentButtons = Theme.UseAccentButtons
+        ThemeAccentButtonsBtnRef.Text = "Accent Buttons: " .. (Theme.UseAccentButtons and "ON" or "OFF")
+        SaveSettings()
+        if ApplyThemeToGUI then ApplyThemeToGUI() end
+    end)
+
+    -- ============================================
     -- ESP TAB
+    -- ============================================
     local ESPTab = Instance.new("Frame")
     ESPTab.Size = UDim2.new(1, 0, 1, 0)
     ESPTab.BackgroundTransparency = 1
@@ -1804,7 +2207,7 @@ local function CreateGUI()
     ESPToggleBtnRef.Size = UDim2.new(1, 0, 0, 40)
     ESPToggleBtnRef.Text = "👁️ ESP: " .. (Settings.ESPEnabled and "ON" or "OFF")
     ESPToggleBtnRef.TextColor3 = Settings.ESPEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
-    ESPToggleBtnRef.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ESPToggleBtnRef.BackgroundColor3 = TC(Theme.PanelColor)
     ESPToggleBtnRef.Font = Enum.Font.GothamBold
     ESPToggleBtnRef.TextSize = 15
     ESPToggleBtnRef.BorderSizePixel = 2
@@ -1818,7 +2221,7 @@ local function CreateGUI()
         Button.Position = UDim2.new(0, 0, 0, yPos)
         Button.Text = name .. ": " .. (getter() and "ON" or "OFF")
         Button.TextColor3 = Color3.fromRGB(0, 255, 100)
-        Button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        Button.BackgroundColor3 = TC(Theme.PanelColor)
         Button.Font = Enum.Font.Gotham
         Button.TextSize = 13
         Button.BorderSizePixel = 1
@@ -1848,7 +2251,7 @@ local function CreateGUI()
     ColorModeBtn.Position = UDim2.new(0, 0, 0, 330)
     ColorModeBtn.Text = "Color Mode: " .. Settings.ESPColorMode
     ColorModeBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
-    ColorModeBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ColorModeBtn.BackgroundColor3 = TC(Theme.PanelColor)
     ColorModeBtn.Font = Enum.Font.Gotham
     ColorModeBtn.TextSize = 13
     ColorModeBtn.BorderSizePixel = 1
@@ -1881,7 +2284,7 @@ local function CreateGUI()
     ESPColorInput.Position = UDim2.new(0, 0, 0, 22)
     ESPColorInput.Text = Settings.ESPCustomColor[1] .. "," .. Settings.ESPCustomColor[2] .. "," .. Settings.ESPCustomColor[3]
     ESPColorInput.TextColor3 = Color3.fromRGB(0, 255, 100)
-    ESPColorInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    ESPColorInput.BackgroundColor3 = TC(Theme.PanelColor)
     ESPColorInput.Font = Enum.Font.Gotham
     ESPColorInput.TextSize = 13
     ESPColorInput.Parent = ESPColorContainer
@@ -1931,7 +2334,7 @@ local function CreateGUI()
         Label.Position = UDim2.new(0, 5, 0, 0)
         local displayName = action:gsub("Toggle", ""):gsub("TeleportToTarget", "Teleport"):gsub("BringTarget", "Bring"):gsub("RapidFire", "Rapid Fire"):gsub("WallBang", "WallBang"):gsub("SnapAim", "Snap Aim"):gsub("SuperFast", "Super Fast")
         Label.Text = displayName
-        Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+        Label.TextColor3 = TC(Theme.TextColor)
         Label.BackgroundTransparency = 1
         Label.Font = Enum.Font.Gotham
         Label.TextSize = 11
@@ -1942,7 +2345,7 @@ local function CreateGUI()
         Button.Position = UDim2.new(0.45, 0, 0, 0)
         Button.Text = KeyCodeToString(Keybinds[action])
         Button.TextColor3 = Color3.fromRGB(255, 255, 0)
-        Button.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        Button.BackgroundColor3 = TC(Theme.PanelColor)
         Button.Font = Enum.Font.GothamBold
         Button.TextSize = 11
         Button.BorderSizePixel = 1
@@ -1994,7 +2397,7 @@ local function CreateGUI()
     FriendProtectBtn.Size = UDim2.new(1, 0, 0, 30)
     FriendProtectBtn.Text = "🛡️ Protect Friends: " .. (getgenv().FriendProtection and "ON" or "OFF")
     FriendProtectBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
-    FriendProtectBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    FriendProtectBtn.BackgroundColor3 = TC(Theme.PanelColor)
     FriendProtectBtn.Font = Enum.Font.Gotham
     FriendProtectBtn.TextSize = 13
     FriendProtectBtn.BorderSizePixel = 1
@@ -2024,7 +2427,7 @@ local function CreateGUI()
     FriendSearchBar.Position = UDim2.new(0, 0, 0, 58)
     FriendSearchBar.PlaceholderText = "🔍 Search friends..."
     FriendSearchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FriendSearchBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    FriendSearchBar.BackgroundColor3 = TC(Theme.PanelColor)
     FriendSearchBar.Font = Enum.Font.Gotham
     FriendSearchBar.TextSize = 12
     FriendSearchBar.BorderSizePixel = 1
@@ -2181,7 +2584,7 @@ local function CreateGUI()
     FlyBtn.Size = UDim2.new(1, 0, 0, 26)
     FlyBtn.Text = "✈️ Fly: " .. (getgenv().FlyEnabled and "ON" or "OFF")
     FlyBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
-    FlyBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    FlyBtn.BackgroundColor3 = TC(Theme.PanelColor)
     FlyBtn.Font = Enum.Font.Gotham
     FlyBtn.TextSize = 12
     FlyBtn.BorderSizePixel = 1
@@ -2195,7 +2598,7 @@ local function CreateGUI()
     NoclipBtn.Position = UDim2.new(0, 0, 0, 30)
     NoclipBtn.Text = "🚪 Noclip: " .. (getgenv().NoclipEnabled and "ON" or "OFF")
     NoclipBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
-    NoclipBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    NoclipBtn.BackgroundColor3 = TC(Theme.PanelColor)
     NoclipBtn.Font = Enum.Font.Gotham
     NoclipBtn.TextSize = 12
     NoclipBtn.BorderSizePixel = 1
@@ -2223,7 +2626,7 @@ local function CreateGUI()
     SpeedSlider.Position = UDim2.new(0, 0, 0, 20)
     SpeedSlider.Text = tostring(getgenv().FlySpeed)
     SpeedSlider.TextColor3 = Color3.fromRGB(0, 255, 150)
-    SpeedSlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    SpeedSlider.BackgroundColor3 = TC(Theme.PanelColor)
     SpeedSlider.Font = Enum.Font.Gotham
     SpeedSlider.TextSize = 12
     SpeedSlider.Parent = SpeedContainer
@@ -2245,7 +2648,7 @@ local function CreateGUI()
     RapidFireBtn.Position = UDim2.new(0, 0, 0, 105)
     RapidFireBtn.Text = "🔫 Rapid Fire: OFF"
     RapidFireBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
-    RapidFireBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    RapidFireBtn.BackgroundColor3 = TC(Theme.PanelColor)
     RapidFireBtn.Font = Enum.Font.Gotham
     RapidFireBtn.TextSize = 12
     RapidFireBtn.BorderSizePixel = 2
@@ -2260,7 +2663,7 @@ local function CreateGUI()
     SuperFastBtnRef.Position = UDim2.new(0, 0, 0, 135)
     SuperFastBtnRef.Text = "⚡ Super Fast Shoot: " .. (getgenv().SuperFastShootEnabled and "ON" or "OFF")
     SuperFastBtnRef.TextColor3 = getgenv().SuperFastShootEnabled and Color3.fromRGB(255, 0, 255) or Color3.fromRGB(0, 255, 150)
-    SuperFastBtnRef.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    SuperFastBtnRef.BackgroundColor3 = TC(Theme.PanelColor)
     SuperFastBtnRef.Font = Enum.Font.GothamBold
     SuperFastBtnRef.TextSize = 13
     SuperFastBtnRef.BorderSizePixel = 2
@@ -2274,7 +2677,7 @@ local function CreateGUI()
     WallBangBtn.Position = UDim2.new(0, 0, 0, 170)
     WallBangBtn.Text = "🧱 Shoot Through Walls: " .. (getgenv().WallBangEnabled and "ON" or "OFF")
     WallBangBtn.TextColor3 = getgenv().WallBangEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 150)
-    WallBangBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    WallBangBtn.BackgroundColor3 = TC(Theme.PanelColor)
     WallBangBtn.Font = Enum.Font.GothamBold
     WallBangBtn.TextSize = 13
     WallBangBtn.BorderSizePixel = 2
@@ -2302,7 +2705,7 @@ local function CreateGUI()
     RFDelaySlider.Position = UDim2.new(0, 0, 0, 20)
     RFDelaySlider.Text = tostring(math.floor((getgenv().RapidFireDelay or 0) * 1000))
     RFDelaySlider.TextColor3 = Color3.fromRGB(255, 150, 50)
-    RFDelaySlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    RFDelaySlider.BackgroundColor3 = TC(Theme.PanelColor)
     RFDelaySlider.Font = Enum.Font.Gotham
     RFDelaySlider.TextSize = 12
     RFDelaySlider.Parent = RFDelayContainer
@@ -2410,7 +2813,7 @@ local function CreateGUI()
     local AttachInfo = Instance.new("TextLabel")
     AttachInfo.Size = UDim2.new(1, 0, 0, 35)
     AttachInfo.Text = "Click a player to attach to them.\nPress your Attach keybind to toggle on/off."
-    AttachInfo.TextColor3 = Color3.fromRGB(200, 200, 200)
+    AttachInfo.TextColor3 = TC(Theme.TextColor)
     AttachInfo.BackgroundTransparency = 1
     AttachInfo.Font = Enum.Font.Gotham
     AttachInfo.TextSize = 11
@@ -2423,7 +2826,7 @@ local function CreateGUI()
     AttachStatusLabel.Position = UDim2.new(0, 0, 0, 40)
     AttachStatusLabel.Text = "Status: Not attached"
     AttachStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-    AttachStatusLabel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    AttachStatusLabel.BackgroundColor3 = TC(Theme.PanelColor)
     AttachStatusLabel.Font = Enum.Font.GothamBold
     AttachStatusLabel.TextSize = 12
     AttachStatusLabel.BorderSizePixel = 1
@@ -2478,7 +2881,7 @@ local function CreateGUI()
     OffsetXSlider.Position = UDim2.new(0, 0, 0, 20)
     OffsetXSlider.Text = tostring(Settings.AttachOffsetX or 0)
     OffsetXSlider.TextColor3 = Color3.fromRGB(0, 255, 255)
-    OffsetXSlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    OffsetXSlider.BackgroundColor3 = TC(Theme.PanelColor)
     OffsetXSlider.Font = Enum.Font.Gotham
     OffsetXSlider.TextSize = 12
     OffsetXSlider.Parent = OffsetXContainer
@@ -2512,7 +2915,7 @@ local function CreateGUI()
     OffsetYSlider.Position = UDim2.new(0, 0, 0, 20)
     OffsetYSlider.Text = tostring(Settings.AttachOffsetY or 2)
     OffsetYSlider.TextColor3 = Color3.fromRGB(0, 255, 255)
-    OffsetYSlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    OffsetYSlider.BackgroundColor3 = TC(Theme.PanelColor)
     OffsetYSlider.Font = Enum.Font.Gotham
     OffsetYSlider.TextSize = 12
     OffsetYSlider.Parent = OffsetYContainer
@@ -2546,7 +2949,7 @@ local function CreateGUI()
     OffsetZSlider.Position = UDim2.new(0, 0, 0, 20)
     OffsetZSlider.Text = tostring(Settings.AttachOffsetZ or 3)
     OffsetZSlider.TextColor3 = Color3.fromRGB(0, 255, 255)
-    OffsetZSlider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    OffsetZSlider.BackgroundColor3 = TC(Theme.PanelColor)
     OffsetZSlider.Font = Enum.Font.Gotham
     OffsetZSlider.TextSize = 12
     OffsetZSlider.Parent = OffsetZContainer
@@ -2566,7 +2969,7 @@ local function CreateGUI()
     LockRotBtn.Position = UDim2.new(0, 0, 0, 245)
     LockRotBtn.Text = "🔒 Lock Rotation: " .. (Settings.AttachLockRotation and "ON" or "OFF")
     LockRotBtn.TextColor3 = Color3.fromRGB(0, 255, 200)
-    LockRotBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    LockRotBtn.BackgroundColor3 = TC(Theme.PanelColor)
     LockRotBtn.Font = Enum.Font.Gotham
     LockRotBtn.TextSize = 12
     LockRotBtn.BorderSizePixel = 1
@@ -2677,8 +3080,74 @@ local function CreateGUI()
         FOVCorner.CornerRadius = UDim.new(1, 0)
     end
 
+    -- Apply theme to everything after creation
+    ApplyThemeToGUI = function()
+        ApplyThemeToAllButtons()
+        -- Update tab button colors individually
+        if TabButtons then
+            for _, btn in ipairs(TabButtons) do
+                local tabName = btn.Text
+                local tabColorMap = {
+                    Aimbot = Theme.AccentColor,
+                    Visuals = {50, 200, 255},
+                    ESP = {0, 255, 100},
+                    Keybinds = {255, 200, 50},
+                    ["Friend Manager"] = {255, 215, 0},
+                    Slots = {150, 50, 255},
+                    Misc = {0, 255, 150},
+                    Attach = {0, 255, 200}
+                }
+                local c = tabColorMap[tabName] or Theme.AccentColor
+                local isActive = btn.TextColor3 == Color3.fromRGB(255, 255, 255)
+                if isActive then
+                    btn.BackgroundColor3 = AccentPanel(c, 0.3)
+                    btn.BorderColor3 = TC(c)
+                else
+                    btn.BackgroundColor3 = TC(Theme.PanelColor)
+                    btn.BorderColor3 = Color3.fromRGB(30, 30, 30)
+                end
+            end
+        end
+        -- Update main frame
+        if MainFrame then
+            MainFrame.BackgroundColor3 = TC(Theme.BackgroundColor)
+            MainFrame.BorderColor3 = TC(Theme.AccentColor)
+            -- Update title and header
+            for _, child in ipairs(MainFrame:GetChildren()) do
+                if child:IsA("TextLabel") then
+                    if child.Text == "FRShYHub V1" then
+                        child.TextColor3 = TC(Theme.TitleColor)
+                        child.BackgroundColor3 = TC(Theme.HeaderColor)
+                    elseif child.Text == "Made by clipz" then
+                        child.TextColor3 = TC(Theme.AccentColor)
+                    end
+                end
+            end
+        end
+        -- Update aimbot sliders labels etc
+        for _, btn in pairs(AimbotTabButtons) do
+            if btn then
+                if btn.Text:match("^Aimbot:") or btn.Text:match("^Team Check:") or btn.Text:match("^Wall Check:") then
+                    btn.TextColor3 = TC(Theme.TextColor)
+                    btn.BorderColor3 = TC(Theme.AccentColor)
+                    local on = btn.Text:find("ON") ~= nil
+                    btn.BackgroundColor3 = on and AccentPanel(Theme.AccentColor) or TC(Theme.PanelColor)
+                end
+            end
+        end
+        -- Update FOV circle color
+        if FOVCircle then
+            local color = Color3.fromRGB(Settings.FOVColor[1], Settings.FOVColor[2], Settings.FOVColor[3])
+            FOVCircle.BackgroundColor3 = color
+            FOVCircle.BorderColor3 = color
+        end
+        -- Update update functions to use new theme
+        UpdateAllTabButtons()
+    end
+
     UpdateKeybindLabels()
     UpdateAllTabButtons()
+    ApplyThemeToGUI()
 
     task.wait(0.5)
     UpdatePlayerList()
@@ -2971,3 +3440,4 @@ end
 print("✅ FRShYHub V1 Loaded!")
 print("🔒 Right Shift - Show/Hide GUI")
 print("🔁 All keybinds are TOGGLES (press once = ON, press again = OFF)")
+print("🎨 Menu theme is customizable in the Visuals tab!")
